@@ -90,11 +90,30 @@ const VacationRequest = () => {
   const handleSignatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+        alert('يرجى اختيار ملف صورة صالح');
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        alert('حجم الملف يجب أن يكون أقل من 5MB');
+        return;
+      }
+
       form.setValue("signature", file);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setSignaturePreview(reader.result as string);
+      
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setSignaturePreview(event.target.result as string);
+        }
       };
+
+      reader.onerror = () => {
+        console.error('Error reading file');
+        alert('حدث خطأ أثناء قراءة الملف');
+      };
+
       reader.readAsDataURL(file);
     }
   };
@@ -112,7 +131,7 @@ const VacationRequest = () => {
     doc.setFont("Helvetica");
     doc.setFontSize(11);
 
-    doc.addImage(logoPath, "PNG", 10, 10, 40, 20);
+    doc.addImage(logoPath, "PNG", 10, 10, 66, 20);
 
     doc.text("Réf : OFP/DR……/CMC…../N°", 20, 40);
     doc.text("/2025", 75, 40);
@@ -175,7 +194,11 @@ const VacationRequest = () => {
     doc.text("رأي المدير", 150, 220);
 
     if (signaturePreview) {
-      doc.addImage(signaturePreview, "PNG", 25, 225, 40, 20);
+      try {
+        doc.addImage(signaturePreview, "PNG", 25, 225, 40, 20);
+      } catch (error) {
+        console.error("Error adding signature image:", error);
+      }
     }
 
     doc.setFontSize(9);
@@ -568,7 +591,7 @@ const VacationRequest = () => {
                 <FormField
                   control={form.control}
                   name="signature"
-                  render={({ field: { value, ...fieldProps } }) => (
+                  render={({ field: { value, onChange, ...fieldProps } }) => (
                     <FormItem>
                       <FormLabel>{t('signatureUpload')}</FormLabel>
                       <FormControl>
@@ -577,7 +600,10 @@ const VacationRequest = () => {
                             <Input
                               type="file"
                               accept="image/*"
-                              onChange={handleSignatureChange}
+                              onChange={(e) => {
+                                handleSignatureChange(e);
+                                onChange(e.target.files?.[0]);
+                              }}
                               className="hidden"
                               id="signature-upload"
                               {...fieldProps}
