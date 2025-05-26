@@ -85,10 +85,12 @@ const MissionOrder = () => {
     const currentDate = format(new Date(), "EEEE d MMMM yyyy", { locale: fr });
 
     // رأس المستند
+    const logoPath = "/client/public/lovable-uploads/d44e75ac-eac5-4ed3-bf43-21a71c6a089d.png";
+    doc.addImage(logoPath, 'PNG', 20, 10, 30, 30);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
-    doc.text("N/Réf : OFP/DR Casa Settat/          / N° :           …/2025", 20, 40);
-    doc.text(`Casablanca, le ${currentDate}`, 120, 40);
+    doc.text("N/Réf : OFP/DR Casa Settat/          / N° :           …/2025", 20, 45);
+    doc.text(`Casablanca, le ${currentDate}`, 120, 45);
 
     // العنوان
     doc.setFont("helvetica", "bold");
