@@ -1,20 +1,27 @@
 import React from "react";
-import { jsPDF } from "jspdf";
+import jsPDF from "jspdf";
 import { AmiriFont } from "../fonts/AmiriFont";
+// @ts-ignore
+import * as reshaper from "arabic-persian-reshaper";
+const reshape = reshaper.reshape;
+// أو قد يكون reshaper.default.reshape اعتمادًا على المكتبة
+import bidi from "bidi-js";
 
 const ArabicPdfGenerator: React.FC = () => {
   const generatePdf = () => {
     const doc = new jsPDF();
 
-    // دمج الخط
-    doc.addFileToVFS("Amiri.ttf", AmiriFont.data);
-    doc.addFont("Amiri.ttf", "Amiri", "normal");
+    // أضف الخط إلى jsPDF
+    doc.addFileToVFS("Amiri-Regular.ttf", AmiriFont);
+    doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
     doc.setFont("Amiri");
+    doc.setFontSize(16);
 
-    doc.setFontSize(18);
-    doc.text("مرحبًا بك في نظام الموارد البشرية", 190, 30, {
-      align: "right",
-    });
+    // نص عربي (يمكنك عكسه أو استخدام مكتبة bidi-js/reshaper)
+    const arabicText = "طلب إجازة";
+    const shaped = reshape(arabicText);
+    const bidiText = bidi.from_string(shaped).toString();
+    doc.text(bidiText, 180, 30, { align: "right" });
 
     doc.save("arabic-output.pdf");
   };

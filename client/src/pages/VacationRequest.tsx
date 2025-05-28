@@ -5,7 +5,7 @@ import { z } from "zod";
 import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { ar, fr } from "date-fns/locale";
-import { CalendarIcon, FileImage, CheckCircle } from "lucide-react";
+import { CalendarIcon, FileImage, CheckCircle, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,6 +59,8 @@ const formSchema = z.object({
 const VacationRequest = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const { language, t } = useLanguage();
   const logoPath = "/lovable-uploads/d44e75ac-eac5-4ed3-bf43-21a71c6a089d.png";
 
@@ -89,32 +91,52 @@ const VacationRequest = () => {
 
   const handleSignatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    setUploadError(null);
+    
     if (file) {
-      if (!file.type.startsWith('image/')) {
-        alert('يرجى اختيار ملف صورة صالح');
-        return;
-      }
-
-      if (file.size > 5 * 1024 * 1024) {
-        alert('حجم الملف يجب أن يكون أقل من 5MB');
-        return;
-      }
-
-      form.setValue("signature", file);
-      const reader = new FileReader();
+      // Validate file type
+      const validTypes = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp'];
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
       
+      if (!validTypes.includes(fileExtension)) {
+        setUploadError(t('invalidFileType'));
+        return;
+      }
+      
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        setUploadError(t('fileTooLarge'));
+        return;
+      }
+      
+      setIsUploading(true);
+      form.setValue("signature", file);
+      
+      const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target?.result) {
           setSignaturePreview(event.target.result as string);
+          setIsUploading(false);
         }
       };
-
       reader.onerror = () => {
-        console.error('Error reading file');
-        alert('حدث خطأ أثناء قراءة الملف');
+        setUploadError(t('uploadError'));
+        setIsUploading(false);
       };
-
       reader.readAsDataURL(file);
+    } else {
+      form.setValue("signature", undefined);
+      setSignaturePreview(null);
+    }
+  };
+
+  const clearSignature = () => {
+    form.setValue("signature", undefined);
+    setSignaturePreview(null);
+    setUploadError(null);
+    const fileInput = document.getElementById("signature-upload") as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
     }
   };
 
@@ -131,81 +153,147 @@ const VacationRequest = () => {
     doc.setFont("Helvetica");
     doc.setFontSize(11);
 
-    doc.addImage(logoPath, "PNG", 10, 10, 66, 20);
+    try {
+      doc.addImage(logoPath, "PNG", 10, 10, 50, 25);
+    } catch (error) {
+      console.log("Could not load logo:", error);
+    }
 
-    doc.text("Réf : OFP/DR……/CMC…../N°", 20, 40);
-    doc.text("/2025", 75, 40);
-    doc.text("Date :", 20, 45);
-    doc.text(currentDate, 35, 45);
+    doc.text("Réf : OFP/DR……/CMC…../N°", 20, 45);
+    doc.text("/2025", 75, 45);
+    doc.text("Date :", 20, 50);
+    doc.text(currentDate, 35, 50);
 
     doc.setFontSize(14);
     doc.setFont("Helvetica", "bold");
-    doc.text("Demande de congé", 90, 60);
-    doc.text("طلب إجازة", 115, 65);
-
+    doc.text("Demande de congé", 90, 65);
+    doc.text("طلب إجازة", 115, 70);
+    doc.line(115, 71, 140, 71);
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(11);
 
-    const drawLine = (y: number) => doc.line(20, y, 190, y);
+    let currentY = 80;
+    const col1XFr = 20;
+    const col1XAr = 190;
+    const col2XFr = 60;
+    const col2XAr = 150;
+    const lineLengthFr = 40;
+    const lineLengthAr = 35;
+    const lineThickness = 0.2;
 
-    const row = (labelFr: string, value: string | undefined, labelAr: string, y: number) => {
-      doc.text(`${labelFr} :`, 20, y);
-      doc.text(`${value || ""}`, 60, y);
-      doc.text(`${labelAr} :`, 190, y, { align: "right" });
+    const addFieldRow = (labelFr: string, value: string | undefined | Date, labelAr: string, y: number, isArabicPair = true) => {
+      const displayValue = typeof value === 'string' ? value : (value instanceof Date ? format(value, "yyyy-MM-dd") : "");
+
+      doc.text(`${labelFr} :`, col1XFr, y);
+
+      if (displayValue) {
+        doc.text(displayValue, col2XFr, y);
+      } else {
+        doc.line(col2XFr, y + 1, col2XFr + lineLengthFr, y + 1);
+      }
+
+      doc.text(`${labelAr} :`, col1XAr, y, { align: "right" });
+
+      if (displayValue && isArabicPair) {
+        doc.line(col2XAr - lineLengthAr, y + 1, col2XAr, y + 1);
+      } else {
+        doc.line(col2XAr - lineLengthAr, y + 1, col2XAr, y + 1);
+      }
+      doc.setLineWidth(lineThickness);
     };
 
-    row("Nom & Prénom", data.fullName, "الاسم الكامل", 80);
-    row("Matricule", data.matricule, "الرقم المالي", 87);
-    row("Echelle", data.echelle, "السلم", 94);
-    row("Echelon", data.echelon, "الرتبة", 101);
-    row("Grade", data.grade, "الدرجة", 108);
-    row("Fonction", data.fonction, "الوظيفة", 115);
+    addFieldRow("Nom & Prénom", data.fullName, "الاسم الكامل", currentY); currentY += 7;
+    addFieldRow("Matricule", data.matricule, "الرقم المالي", currentY); currentY += 7;
+    addFieldRow("Echelle", data.echelle, "السلم", currentY);
+    doc.text("Echelon:", col2XFr + lineLengthFr + 10, currentY);
+    addFieldRow("Echelon", data.echelon, "الرتبة", currentY, false);
+    currentY += 7;
+    addFieldRow("Grade", data.grade, "الدرجة", currentY); currentY += 7;
+    addFieldRow("Fonction", data.fonction, "الوظيفة", currentY); currentY += 10;
 
     doc.setFont("Helvetica", "bold");
-    doc.text("Affectation", 90, 125);
-    doc.text("التعيين", 115, 130);
+    doc.text("Affectation", 90, currentY); currentY += 5;
+    doc.text("التعيين", 115, currentY);
+    doc.line(115, currentY + 1, 140, currentY + 1);
     doc.setFont("Helvetica", "normal");
+    currentY += 10;
 
-    row("Direction", data.direction, "المديرية", 140);
-    row("Adresse", data.address, "العنوان", 147);
-    row("Téléphone", data.phone, "الهاتف", 154);
+    addFieldRow("Direction", data.direction, "المديرية", currentY); currentY += 7;
+    addFieldRow("Adresse", data.address, "العنوان", currentY); currentY += 7;
+    addFieldRow("Téléphone", data.phone, "الهاتف", currentY); currentY += 7;
 
-    const leaveTypeOptions = {
+    const leaveTypeOptions: { [key: string]: string } = {
       administrative: "إدارية / Administrative",
       marriage: "زواج / Mariage",
       birth: "ازدياد / Naissance",
       exceptional: "استثنائية / Exceptionnel",
     };
+    addFieldRow("Nature de congé (2)", leaveTypeOptions[data.leaveType] || data.leaveType, "نوع الإجازة (2)", currentY); currentY += 7;
+    addFieldRow("Durée", data.duration, "المدة", currentY); currentY += 7;
 
-    row("Nature de congé (2)", leaveTypeOptions[data.leaveType as keyof typeof leaveTypeOptions] || data.leaveType, "نوع الإجازة (2)", 161);
-    row("Durée", data.duration, "المدة", 168);
-    row("Du", format(data.startDate, "yyyy-MM-dd"), "ابتداء من", 175);
-    row("Au", format(data.endDate, "yyyy-MM-dd"), "إلى", 182);
-    row("Avec (3)", data.with, "مع (3)", 189);
-    row("Intérim", data.interim, "النيابة (الاسم والوظيفة)", 196);
+    doc.text("Du :", col1XFr, currentY);
+    const startDateValue = data.startDate instanceof Date ? format(data.startDate, "yyyy-MM-dd") : "";
+    if (startDateValue) {
+      doc.text(startDateValue, col2XFr, currentY);
+    } else {
+      doc.line(col2XFr, currentY + 1, col2XFr + lineLengthFr, currentY + 1);
+    }
+    doc.text("ابتداء من :", col1XAr, currentY, { align: "right" });
 
-    doc.text("Signature de l'intéressé", 30, 215);
-    doc.text("إمضاء المعني(ة) بالأمر", 30, 220);
+    currentY += 7;
+    doc.text("Au :", col1XFr, currentY);
+    const endDateValue = data.endDate instanceof Date ? format(data.endDate, "yyyy-MM-dd") : "";
+    if (endDateValue) {
+      doc.text(endDateValue, col2XFr, currentY);
+    } else {
+      doc.line(col2XFr, currentY + 1, col2XFr + lineLengthFr, currentY + 1);
+    }
+    doc.text("إلى :", col1XAr, currentY, { align: "right" });
 
-    doc.text("Avis du Chef Immédiat", 85, 215);
-    doc.text("رأي الرئيس المباشر", 85, 220);
+    currentY += 7;
+    addFieldRow("Avec (3)", data.with, "مع (3)", currentY); currentY += 7;
 
-    doc.text("Avis du Directeur", 150, 215);
-    doc.text("رأي المدير", 150, 220);
+    doc.text("Intérim (Nom et Fonction) :", col1XFr, currentY);
+    if (data.interim) {
+      doc.text(data.interim, col2XFr + 20, currentY);
+    } else {
+      doc.line(col2XFr + 20, currentY + 1, col2XFr + 20 + 60, currentY + 1);
+    }
+    doc.text("النيابة (الاسم والوظيفة) :", col1XAr, currentY, { align: "right" });
+    currentY += 10;
+
+    const signatureY = 215;
+    doc.text("Signature de l'intéressé", 30, signatureY);
+    doc.text("إمضاء المعني(ة) بالأمر", 30, signatureY + 5);
+
+    doc.text("Avis du Chef Immédiat", 85, signatureY);
+    doc.text("رأي الرئيس المباشر", 85, signatureY + 5);
+
+    doc.text("Avis du Directeur", 150, signatureY);
+    doc.text("رأي المدير", 150, signatureY + 5);
+
+    console.log("Signature preview value before adding image:", signaturePreview ? "Has data" : "No data", signaturePreview ? `Data URL starts with: ${signaturePreview.substring(0, 30)}` : "");
 
     if (signaturePreview) {
+      const imgType = signaturePreview.startsWith("data:image/png") ? "PNG" : "JPEG";
       try {
-        doc.addImage(signaturePreview, "PNG", 25, 225, 40, 20);
+        doc.addImage(signaturePreview, imgType, 30, signatureY + 15, 40, 20);
       } catch (error) {
         console.error("Error adding signature image:", error);
       }
     }
 
+    doc.line(25, signatureY + 38, 70, signatureY + 38);
+    doc.line(80, signatureY + 38, 125, signatureY + 38);
+    doc.line(145, signatureY + 38, 190, signatureY + 38);
+
+    let notesY = 250;
     doc.setFontSize(9);
     doc.setFont("Helvetica", "bold");
-    doc.text("Très important :", 20, 250);
-    doc.text("هام جدا :", 190, 250, { align: "right" });
+    doc.text("Très important :", 20, notesY);
+    doc.text("هام جدا :", 190, notesY, { align: "right" });
 
+    notesY += 5;
     doc.setFontSize(8);
     doc.setFont("Helvetica", "normal");
 
@@ -228,13 +316,16 @@ const VacationRequest = () => {
       '"مغادرة التراب الوطني"',
     ];
 
-    let startY = 255;
+    let notesStartXFr = 20;
+    let notesStartXAr = 190;
+    let currentNotesY = notesY;
+
     notes.forEach((line, i) => {
-      doc.text(line, 20, startY);
+      doc.text(line, notesStartXFr, currentNotesY);
       if (i < notesAr.length) {
-        doc.text(notesAr[i], 190, startY, { align: "right" });
+        doc.text(notesAr[i], notesStartXAr, currentNotesY, { align: "right" });
       }
-      startY += 5;
+      currentNotesY += 5;
     });
 
     doc.save(`demande_conge_${data.fullName.replace(/\s+/g, "_")}.pdf`);
@@ -591,7 +682,7 @@ const VacationRequest = () => {
                 <FormField
                   control={form.control}
                   name="signature"
-                  render={({ field: { value, onChange, ...fieldProps } }) => (
+                  render={({ field: { value, ...fieldProps } }) => (
                     <FormItem>
                       <FormLabel>{t('signatureUpload')}</FormLabel>
                       <FormControl>
@@ -599,11 +690,8 @@ const VacationRequest = () => {
                           <div className="flex items-center gap-4">
                             <Input
                               type="file"
-                              accept="image/*"
-                              onChange={(e) => {
-                                handleSignatureChange(e);
-                                onChange(e.target.files?.[0]);
-                              }}
+                              accept=".png,.jpg,.jpeg,.gif,.bmp,.tiff,.webp"
+                              onChange={handleSignatureChange}
                               className="hidden"
                               id="signature-upload"
                               {...fieldProps}
@@ -613,19 +701,42 @@ const VacationRequest = () => {
                               variant="outline"
                               onClick={() => document.getElementById("signature-upload")?.click()}
                               className="w-full"
+                              disabled={isUploading}
                             >
-                              <FileImage className="mr-2 h-4 w-4" />
-                              {t('signatureUploadButton')}
+                              {isUploading ? (
+                                <div className="flex items-center">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 mr-2"></div>
+                                  {t('uploading')}
+                                </div>
+                              ) : (
+                                <>
+                                  <FileImage className="mr-2 h-4 w-4" />
+                                  {t('signatureUploadButton')}
+                                </>
+                              )}
                             </Button>
                           </div>
                           {signaturePreview && (
-                            <div className="border rounded-md p-2">
+                            <div className="border rounded-md p-2 relative">
                               <img
                                 src={signaturePreview}
                                 alt={t('signature')}
-                                className="max-h-32 mx-auto"
+                                className="max-h-32 mx-auto object-contain"
+                                style={{ maxWidth: '100%' }}
                               />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute top-2 right-2"
+                                onClick={clearSignature}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
                             </div>
+                          )}
+                          {uploadError && (
+                            <p className="text-sm text-red-500">{uploadError}</p>
                           )}
                         </div>
                       </FormControl>

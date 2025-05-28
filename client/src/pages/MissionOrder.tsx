@@ -20,15 +20,20 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, CheckCircle, FileImage } from "lucide-react";
+import { CalendarIcon, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { ar, fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import jsPDF from "jspdf";
 
+// Import the Arabic font data
+import { AmiriFont } from "../fonts/AmiriFont";
+
 // تعريف الـ Schema للتحقق من صحة البيانات
 const formSchema = z.object({
+  monsieurMadame: z.string().min(3, { message: "يرجى إدخال اسم السيد/السيدة" }),
+  matricule: z.string().min(1, { message: "يرجى إدخال رقم التسجيل" }),
   destination: z.string().min(3, {
     message: "يرجى ذكر وجهة المهمة",
   }),
@@ -41,21 +46,29 @@ const formSchema = z.object({
   endDate: z.date({
     required_error: "يرجى تحديد تاريخ النهاية",
   }),
+  conducteur: z.string().optional(),
+  conducteurMatricule: z.string().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
   additionalInfo: z.string().optional(),
-  signature: z.instanceof(File).optional(),
 });
 
 const MissionOrder = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
   const { language, t } = useLanguage();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      monsieurMadame: "",
+      matricule: "",
       destination: "",
       purpose: "",
       additionalInfo: "",
+      conducteur: "",
+      conducteurMatricule: "",
+      startTime: "",
+      endTime: "",
     },
   });
 
@@ -66,94 +79,142 @@ const MissionOrder = () => {
     generatePDF(values); // توليد PDF بعد الإرسال
   };
 
-  // دالة لتحميل التوقيع
-  const handleSignatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      form.setValue("signature", file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSignaturePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   // دالة لتوليد PDF
-  const generatePDF = (data) => {
+  const generatePDF = async (data: z.infer<typeof formSchema>) => {
     const doc = new jsPDF('p', 'mm', 'a4');
     const currentDate = format(new Date(), "EEEE d MMMM yyyy", { locale: fr });
 
     // رأس المستند
-    const logoPath = "/client/public/lovable-uploads/d44e75ac-eac5-4ed3-bf43-21a71c6a089d.png";
-    doc.addImage(logoPath, 'PNG', 20, 10, 30, 30);
+    const logoPath = "/lovable-uploads/d44e75ac-eac5-4ed3-bf43-21a71c6a089d.png";
+    
+    // Load and add logo
+    try {
+      const img = new Image();
+      img.src = logoPath;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject; // Handle potential loading errors
+      });
+      // Adjusted logo position and size to match the image
+      doc.addImage(img, "PNG", 6, 6, 98, 33); // Adjusted position and size
+    } catch (error) {
+      console.error("Error loading logo:", error);
+    }
+
+    // Add Amiri font to PDF (if still needed for any Arabic text)
+    doc.addFileToVFS("Amiri-Regular.ttf", AmiriFont);
+    doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
+
+    // Set font for Latin text (like French)
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
-    doc.text("N/Réf : OFP/DR Casa Settat/          / N° :           …/2025", 20, 45);
-    doc.text(`Casablanca, le ${currentDate}`, 120, 45);
+    // Adjusted vertical and horizontal position based on image
+    doc.text("N/Réf : OFP/DR Casa Settat/          / N° :           …/2025", 20, 50); // Adjusted Y
+    doc.text(`Casablanca, le ${currentDate}`, 140, 50); // Adjusted X and Y
 
     // العنوان
-    doc.setFont("helvetica", "bold");
+    doc.setFont("helvetica", "bolditalic"); // Changed to bolditalic based on image
     doc.setFontSize(14);
-    doc.text("ORDRE DE MISSION", 80, 55);
-    doc.text("OFFICE DE LA FORMATION PROFESSIONNELLE", 40, 62);
-    doc.text("ET DE LA PROMOTION DU TRAVAIL", 50, 69);
-    doc.text("D E S I G N E", 90, 80);
+    // Adjusted vertical position of titles
+    doc.text("ORDRE DE MISSION", 105, 65, { align: "center" }); // Centered and adjusted Y
+    doc.text("OFFICE DE LA FORMATION PROFESSIONNELLE", 105, 72, { align: "center" }); // Centered and adjusted Y
+    doc.text("ET DE LA PROMOTION DU TRAVAIL", 105, 79, { align: "center" }); // Centered and adjusted Y
+
+    doc.setFont("helvetica", "bold"); // Bold for DESIGNE
+    doc.setFontSize(14);
+    doc.text("D E S I G N E", 105, 90, { align: "center" }); // Centered and adjusted Y
 
     // تفاصيل المهمة
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.rect(20, 85, 170, 90);
+    
+    // Drawing the table structure based on the image - Adjusted starting Y
+    const startY = 95; // Adjusted starting Y
+    const col1X = 20;
+    const col2X = 105;
+    const endX = 190;
+    const rowHeight = 10;
 
-    // السطر 1
-    doc.line(20, 95, 190, 95);
-    doc.text("De se rendre à           :", 25, 90);
-    doc.text(data.destination, 80, 90);
+    // Header row
+    doc.rect(col1X, startY, endX - col1X, rowHeight);
+    doc.text("Monsieur/Madame :", col1X + 5, startY + rowHeight / 2 + 2);
+    doc.text(data.monsieurMadame || "", col1X + 50, startY + rowHeight / 2 + 2);
+    doc.text("Matricule :", col2X + 5, startY + rowHeight / 2 + 2);
+    doc.text(data.matricule || "", col2X + 30, startY + rowHeight / 2 + 2);
 
-    // السطر 2
-    doc.line(20, 105, 190, 105);
-    doc.text("Pour accomplir la mission suivante :", 25, 100);
-    doc.text(data.purpose, 80, 100);
+    // Row 1
+    doc.rect(col1X, startY + rowHeight, endX - col1X, rowHeight);
+    doc.line(col2X, startY + rowHeight, col2X, startY + rowHeight * 2);
+    doc.text("De se rendre à           :", col1X + 5, startY + rowHeight * 1.5 + 2);
+    doc.text(data.destination, col1X + 50, startY + rowHeight * 1.5 + 2);
 
-    // السطر 3
-    doc.line(20, 115, 190, 115);
-    doc.line(130, 105, 130, 115);
-    doc.text("Date de départ    :", 25, 110);
-    doc.text(format(data.startDate, "yyyy-MM-dd"), 70, 110);
-    doc.text("Date de retour   :", 135, 110);
-    doc.text(format(data.endDate, "yyyy-MM-dd"), 170, 110);
+    // Row 2
+    doc.rect(col1X, startY + rowHeight * 2, endX - col1X, rowHeight);
+    doc.text("Pour accomplir la mission suivante :", col1X + 5, startY + rowHeight * 2.5 + 2);
+    doc.text(data.purpose, col1X + 80, startY + rowHeight * 2.5 + 2);
 
-    // السطر 4
-    doc.line(20, 125, 190, 125);
-    doc.text("Informations supplémentaires :", 25, 120);
-    doc.text(data.additionalInfo || "", 80, 120);
+    // Row 3
+    doc.rect(col1X, startY + rowHeight * 3, endX - col1X, rowHeight);
+    doc.line(col2X, startY + rowHeight * 3, col2X, startY + rowHeight * 4);
+    doc.text("Conducteur :", col1X + 5, startY + rowHeight * 3.5 + 2);
+    doc.text(data.conducteur || "", col1X + 40, startY + rowHeight * 3.5 + 2);
+    doc.text("Matricule :", col2X + 5, startY + rowHeight * 3.5 + 2);
+    doc.text(data.conducteurMatricule || "", col2X + 30, startY + rowHeight * 3.5 + 2);
 
-    // التوقيع
-    if (data.signature && typeof data.signature === 'string') {
-      doc.addImage(data.signature, 'PNG', 150, 130, 40, 20);
-    }
+    // Row 4
+    doc.rect(col1X, startY + rowHeight * 4, endX - col1X, rowHeight);
+    doc.line(col2X, startY + rowHeight * 4, col2X, startY + rowHeight * 5);
+   // النص الأساسي
+doc.text("Date de départ :", col1X + 5, startY + rowHeight * 4.5 + 2);
 
-    // تذييل المستند
+// التاريخ - معدل ليكون قريباً من النص
+doc.text(format(data.startDate, "yyyy-MM-dd"), col1X + 45, startY + rowHeight * 4.5 + 2);
+    doc.text("Heure :", col2X + 5, startY + rowHeight * 4.5 + 2);
+    doc.text(data.startTime || "", col2X + 25, startY + rowHeight * 4.5 + 2);
+
+    // Row 5
+    doc.rect(col1X, startY + rowHeight * 5, endX - col1X, rowHeight);
+    doc.line(col2X, startY + rowHeight * 5, col2X, startY + rowHeight * 6);
+  // النص الأساسي
+doc.text("Date de retour :", col1X + 5, startY + rowHeight * 5.5 + 2);
+
+// التاريخ - نفس الإزاحة المستخدمة في "Date de départ"
+doc.text(format(data.endDate, "yyyy-MM-dd"), col1X + 45, startY + rowHeight * 5.5 + 2);
+    doc.text("Heure :", col2X + 5, startY + rowHeight * 5.5 + 2);
+    doc.text(data.endTime || "", col2X + 25, startY + rowHeight * 5.5 + 2);
+
+    // Row 6
+    const row6Height = 20; // Increased height for this row
+    doc.rect(col1X, startY + rowHeight * 6, endX - col1X, row6Height);
+    doc.text("L'intéressé(e) utilisera :", col1X + 5, startY + rowHeight * 6 + row6Height / 2 + 2);
+    doc.text(data.additionalInfo || "", col1X + 60, startY + rowHeight * 6 + row6Height / 2 + 2);
+
+    // Cadre réservé à l'entité de destinations
+    const cadreY = startY + rowHeight * 6 + row6Height + 10; // Position below the table
     doc.setFont("helvetica", "bold");
     doc.setFillColor(220, 220, 220);
-    doc.rect(20, 185, 170, 10, "F");
-    doc.text("Cadre réservé à l'entité de destinations", 55, 191);
+    doc.rect(col1X, cadreY, endX - col1X, rowHeight, "F");
+    doc.text("Cadre réservé à l'entité de destinations", col1X + (endX - col1X) / 2, cadreY + rowHeight / 2 + 2, { align: "center" });
 
+    // Visa section
+    const visaY = cadreY + rowHeight;
+    const visaSectionHeight = 40;
     doc.setFont("helvetica", "normal");
-    doc.rect(20, 195, 170, 40);
-    doc.line(105, 195, 105, 235);
-    doc.text("Visa d'arrivée", 55, 201);
-    doc.text("Visa de départ", 140, 201);
-    doc.line(20, 205, 190, 205);
-    doc.text("Date et Heure d'arrivée :", 25, 212);
-    doc.text("Date et Heure de départ :", 110, 212);
-    doc.text("Cachet et signature :", 25, 225);
-    doc.text("Cachet et signature :", 110, 225);
+    doc.rect(col1X, visaY, endX - col1X, visaSectionHeight);
+    doc.line(col2X, visaY, col2X, visaY + visaSectionHeight);
+    doc.text("Visa d'arrivée", col1X + (col2X - col1X) / 2, visaY + rowHeight / 2 + 2, { align: "center" });
+    doc.text("Visa de départ", col2X + (endX - col2X) / 2, visaY + rowHeight / 2 + 2, { align: "center" });
+    doc.line(col1X, visaY + rowHeight, endX, visaY + rowHeight);
+    doc.text("Date et Heure d'arrivée :", col1X + 5, visaY + rowHeight * 1.5 + 2);
+    doc.text("Date et Heure de départ :", col2X + 5, visaY + rowHeight * 1.5 + 2);
+    doc.text("Cachet et signature :", col1X + 5, visaY + rowHeight * 2.5 + 2);
+    doc.text("Cachet et signature :", col2X + 5, visaY + rowHeight * 2.5 + 2);
 
     // ملاحظة
     doc.setFontSize(9);
     doc.setFont("helvetica", "italic");
-    doc.text("NB : Le visa de départ est obligatoire pour les missions au-delà d'une journée.", 30, 245);
+    const noteY = visaY + visaSectionHeight + 5; // Adjusted vertical position
+    doc.text("NB : Le visa de départ est obligatoire pour les missions au-delà d'une journée.", 30, noteY);
 
     // حفظ الـ PDF
     doc.save(`ordre_mission_${data.destination.replace(/\s+/g, '_')}.pdf`);
@@ -194,10 +255,36 @@ const MissionOrder = () => {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
                   control={form.control}
+                  name="monsieurMadame"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Monsieur/Madame :</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="matricule"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Matricule :</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="destination"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("destination")}*</FormLabel>
+                      <FormLabel>De se rendre à :</FormLabel>
                       <FormControl>
                         <Input placeholder={t("destinationPlaceholder")} {...field} />
                       </FormControl>
@@ -210,7 +297,7 @@ const MissionOrder = () => {
                   name="purpose"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("purpose")}*</FormLabel>
+                      <FormLabel>Pour accomplir la mission suivante :</FormLabel>
                       <FormControl>
                         <Textarea
                           placeholder={t("purposePlaceholder")}
@@ -227,7 +314,7 @@ const MissionOrder = () => {
                   name="startDate"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>{t("startDate")}*</FormLabel>
+                      <FormLabel>Date de départ :</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -239,7 +326,7 @@ const MissionOrder = () => {
                               )}
                             >
                               {field.value ? (
-                                format(field.value, "PPP", { locale: language === "ar" ? ar : fr })
+                                format(field.value, "yyyy-MM-dd")
                               ) : (
                                 <span>{t("pickDate")}</span>
                               )}
@@ -259,6 +346,19 @@ const MissionOrder = () => {
                           />
                         </PopoverContent>
                       </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="startTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Heure de départ :</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -268,7 +368,7 @@ const MissionOrder = () => {
                   name="endDate"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>{t("endDate")}*</FormLabel>
+                      <FormLabel>Date de retour :</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -280,7 +380,7 @@ const MissionOrder = () => {
                               )}
                             >
                               {field.value ? (
-                                format(field.value, "PPP", { locale: language === "ar" ? ar : fr })
+                                format(field.value, "yyyy-MM-dd")
                               ) : (
                                 <span>{t("pickDate")}</span>
                               )}
@@ -306,10 +406,49 @@ const MissionOrder = () => {
                 />
                 <FormField
                   control={form.control}
+                  name="endTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Heure de retour :</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="conducteur"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Conducteur :</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="conducteurMatricule"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Matricule Conducteur :</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="additionalInfo"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("additionalInfo")}</FormLabel>
+                      <FormLabel>L'intéressé(e) utilisera :</FormLabel>
                       <FormControl>
                         <Textarea
                           placeholder={t("additionalInfoPlaceholder")}
@@ -321,35 +460,8 @@ const MissionOrder = () => {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="signature"
-                  render={({ field: { value, onChange, ...field } }) => (
-                    <FormItem>
-                      <FormLabel>{t("signature")}</FormLabel>
-                      <FormControl>
-                        <div className="flex items-center gap-4">
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleSignatureChange}
-                            {...field}
-                          />
-                          {signaturePreview && (
-                            <img
-                              src={signaturePreview}
-                              alt="Signature preview"
-                              className="h-12 w-auto"
-                            />
-                          )}
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <Button type="submit" className="w-full">
-                  {t("submit")}
+                  إرسال وتحميل PDF
                 </Button>
               </form>
             </Form>
