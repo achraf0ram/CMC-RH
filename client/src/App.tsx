@@ -15,10 +15,12 @@ import NotFound from "./pages/NotFound";
 import SignInPage from "./pages/SignIn";
 import SignUpPage from "./pages/SignUp";
 
+// ✅ إضافة الكومبوننت الخاص بتوليد PDF بالعربية
+import ArabicPdfGenerator from "./components/ArabicPdfGenerator";
 
 const queryClient = new QueryClient();
 
-// Protected route component
+// 🔒 Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -26,7 +28,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <div className="flex h-screen items-center justify-center">Chargement...</div>;
   }
 
-  if (isAuthenticated) {
+  if (!isAuthenticated) {
     console.log("User is not authenticated");
     return <Navigate to="/login" replace />;
   }
@@ -34,7 +36,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Public route component (accessible only when not logged in)
+// 🔓 Public route component
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -59,9 +61,9 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Auth routes */}
+              {/* 🔓 Auth routes */}
               <Route
-                path='/login'
+                path="/login"
                 element={
                   <PublicRoute>
                     <SignInPage />
@@ -69,7 +71,7 @@ const App = () => (
                 }
               />
               <Route
-                path='/register'
+                path="/register"
                 element={
                   <PublicRoute>
                     <SignUpPage />
@@ -77,39 +79,26 @@ const App = () => (
                 }
               />
 
-              {/* Protected routes */}
+              {/* 🔒 Protected routes */}
               <Route
-                path='/'
+                path="/"
                 element={
                   <ProtectedRoute>
                     <MainLayout />
                   </ProtectedRoute>
-                }>
-                <Route
-                  index
-                  element={<Index />}
-                />
-                <Route
-                  path='work-certificate'
-                  element={<WorkCertificate />}
-                />
-                <Route
-                  path='mission-order'
-                  element={<MissionOrder />}
-                />
-                <Route
-                  path='vacation-request'
-                  element={<VacationRequest />}
-                />
-                <Route
-                  path='settings'
-                  element={<Settings />}
-                />
+                }
+              >
+                <Route index element={<Index />} />
+                <Route path="work-certificate" element={<WorkCertificate />} />
+                <Route path="mission-order" element={<MissionOrder />} />
+                <Route path="vacation-request" element={<VacationRequest />} />
+                <Route path="settings" element={<Settings />} />
+
+                {/* ✅ صفحة جديدة لتوليد PDF بالعربية */}
+                <Route path="arabic-pdf" element={<ArabicPdfGenerator />} />
               </Route>
-              <Route
-                path='*'
-                element={<NotFound />}
-              />
+
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
         </AuthProvider>
