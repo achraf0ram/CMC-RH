@@ -80,6 +80,12 @@ const translations: Translations = {
     profileTab: "الملف الشخصي",
     notificationsTab: "الإشعارات",
     passwordTab: "كلمة المرور",
+    // ترجمات جديدة للمساعد الذكي
+    aiAssistant: "مساعد CMC الذكي",
+    cmcFullName: "مدينة المهن والكفاءات",
+    aiHelp: "كيف يمكنني مساعدتك؟",
+    typingIndicator: "يكتب...",
+    aiError: "حدث خطأ في المساعد الذكي",
   },
   fr: {
     home: "Accueil",
@@ -151,6 +157,12 @@ const translations: Translations = {
     profileTab: "Profil",
     notificationsTab: "Notifications",
     passwordTab: "Mot de passe",
+    // ترجمات جديدة للمساعد الذكي
+    aiAssistant: "Assistant CMC",
+    cmcFullName: "Cité des Métiers et des Compétences",
+    aiHelp: "Comment puis-je vous aider?",
+    typingIndicator: "Tape...",
+    aiError: "Erreur dans l'assistant IA",
   }
 };
 

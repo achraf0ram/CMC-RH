@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -40,20 +41,18 @@
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --cmc-blue: 200 92% 48%;
+    --cmc-blue-light: 200 92% 85%;
+    --cmc-blue-dark: 200 92% 35%;
+    --cmc-green: 158 64% 52%;
   }
 
   .dark {
@@ -103,4 +102,136 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Custom CMC Theme Classes */
+.cmc-gradient {
+  background: linear-gradient(135deg, #0FA0CE 0%, #10b981 100%);
+}
+
+.cmc-card {
+  @apply bg-white/95 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300;
+}
+
+.cmc-button-primary {
+  @apply bg-gradient-to-r from-cmc-blue to-cmc-green hover:from-cmc-blue-dark hover:to-emerald-600 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200;
+}
+
+.cmc-input {
+  @apply border-slate-200 bg-white/80 backdrop-blur-sm focus:border-cmc-blue focus:ring-cmc-blue/20;
+}
+
+.cmc-page-background {
+  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 50%, #f0fdf4 100%);
+}
+
+/* CMC Color Classes */
+.text-cmc-blue {
+  color: hsl(var(--cmc-blue));
+}
+
+.bg-cmc-blue {
+  background-color: hsl(var(--cmc-blue));
+}
+
+.text-cmc-blue-light {
+  color: hsl(var(--cmc-blue-light));
+}
+
+.bg-cmc-blue-light {
+  background-color: hsl(var(--cmc-blue-light));
+}
+
+.text-cmc-blue-dark {
+  color: hsl(var(--cmc-blue-dark));
+}
+
+.bg-cmc-blue-dark {
+  background-color: hsl(var(--cmc-blue-dark));
+}
+
+.text-cmc-green {
+  color: hsl(var(--cmc-green));
+}
+
+.bg-cmc-green {
+  background-color: hsl(var(--cmc-green));
+}
+
+.from-cmc-blue {
+  --tw-gradient-from: hsl(var(--cmc-blue)) var(--tw-gradient-from-position);
+}
+
+.to-cmc-green {
+  --tw-gradient-to: hsl(var(--cmc-green)) var(--tw-gradient-to-position);
+}
+
+.from-cmc-blue-dark {
+  --tw-gradient-from: hsl(var(--cmc-blue-dark)) var(--tw-gradient-from-position);
+}
+
+.hover\:from-cmc-blue-dark:hover {
+  --tw-gradient-from: hsl(var(--cmc-blue-dark)) var(--tw-gradient-from-position);
+}
+
+.hover\:to-emerald-600:hover {
+  --tw-gradient-to: #059669 var(--tw-gradient-to-position);
+}
+
+.hover\:text-cmc-blue-dark:hover {
+  color: hsl(var(--cmc-blue-dark));
+}
+
+.hover\:bg-cmc-blue-light\/50:hover {
+  background-color: hsl(var(--cmc-blue-light) / 0.5);
+}
+
+.hover\:bg-cmc-blue-light\/30:hover {
+  background-color: hsl(var(--cmc-blue-light) / 0.3);
+}
+
+/* تأثيرات إضافية للمساعد الذكي */
+.shadow-3xl {
+  box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(15, 160, 206, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(15, 160, 206, 0.6), 0 0 40px rgba(16, 185, 129, 0.3);
+  }
+}
+
+.ai-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* تحسينات للرسائل */
+.message-fade-in {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* تأثيرات للنصوص التوضيحية */
+.tooltip-arrow::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #1f2937 transparent transparent transparent;
 }

@@ -1,6 +1,7 @@
 
 import { AppHeader } from "@/components/AppHeader";
 import { AppSidebar } from "@/components/AppSidebar";
+import { AIAssistantButton } from "@/components/AIAssistantButton";
 import { Outlet } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -11,7 +12,7 @@ export const MainLayout = () => {
   const isMobile = useIsMobile();
   
   return (
-    <div className="min-h-screen flex relative">
+    <div className="min-h-screen flex relative cmc-page-background">
       <AppSidebar />
       
       <div className={cn(
@@ -21,10 +22,13 @@ export const MainLayout = () => {
       )}>
         <AppHeader />
         
-        <main className="flex-1 bg-slate-50 p-6">
+        <main className="flex-1 p-4 md:p-6">
           <Outlet />
         </main>
       </div>
+      
+      {/* زر المساعد الذكي العائم */}
+      <AIAssistantButton />
     </div>
   );
 };

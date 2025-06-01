@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -16,7 +17,6 @@ export default {
 			screens: {
 				'2xl': '1400px'
 			},
-			direction: 'rtl',
 		},
 		extend: {
 			colors: {
@@ -26,21 +26,30 @@ export default {
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
 				primary: {
-					DEFAULT: 'hsl(var(--primary))',
-					foreground: 'hsl(var(--primary-foreground))'
+					DEFAULT: '#0FA0CE',
+					foreground: '#ffffff'
 				},
 				sahara: {
 					50: '#f0f9ff',
-					100: '#dff2ff',
-					200: '#b8e5ff',
-					300: '#78d1ff',
-					400: '#37b7fd',
-					500: '#0e9be8',
-					600: '#0080cc',
-					700: '#0165a5',
-					800: '#065688',
-					900: '#0b4872',
-					950: '#072d49',
+					100: '#e0f2fe',
+					200: '#bae6fd',
+					300: '#7dd3fc',
+					400: '#38bdf8',
+					500: '#0ea5e9',
+					600: '#0284c7',
+					700: '#0369a1',
+					800: '#075985',
+					900: '#0c4a6e',
+					950: '#082f49',
+				},
+				cmc: {
+					blue: '#0FA0CE',
+					'blue-light': '#D3E4FD',
+					'blue-dark': '#0284c7',
+					green: '#10b981',
+					'green-light': '#d1fae5',
+					gray: '#f8fafc',
+					'gray-dark': '#64748b',
 				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
