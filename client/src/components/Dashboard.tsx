@@ -1,29 +1,63 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { BarChart3, Calendar, CheckCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import axios from "axios";
 
 export const Dashboard = () => {
   const { t } = useLanguage();
+  const [pendingCount, setPendingCount] = useState(0);
+  const [approvedCount, setApprovedCount] = useState(0);
+  const [vacationDays, setVacationDays] = useState(0);
+  const [vacationCount, setVacationCount] = useState(0);
+  const [missionCount, setMissionCount] = useState(0);
+  const [certificateCount, setCertificateCount] = useState(0);
+  const [vacationRequests, setVacationRequests] = useState([]);
+  const [missionOrders, setMissionOrders] = useState([]);
+  const [workCertificates, setWorkCertificates] = useState([]);
 
-  const stats = [
+  useEffect(() => {
+    axios.get("http://localhost:8000/api/vacation-requests/pending/count")
+      .then(res => setPendingCount(res.data.count))
+      .catch(() => setPendingCount(0));
+    axios.get("http://localhost:8000/api/vacation-requests/approved/count")
+      .then(res => setApprovedCount(res.data.count))
+      .catch(() => setApprovedCount(0));
+    axios.get("http://localhost:8000/api/vacation-requests/vacation-days/sum")
+      .then(res => setVacationDays(res.data.days))
+      .catch(() => setVacationDays(0));
+    axios.get('http://localhost:8000/api/vacation-requests/count')
+      .then(res => setVacationCount(res.data.count));
+    axios.get('http://localhost:8000/api/mission-orders/count')
+      .then(res => setMissionCount(res.data.count));
+    axios.get('http://localhost:8000/api/work-certificates/count')
+      .then(res => setCertificateCount(res.data.count));
+    axios.get('/api/vacation-requests/user', { withCredentials: true })
+      .then(res => setVacationRequests(res.data));
+    axios.get('/api/mission-orders/user', { withCredentials: true })
+      .then(res => setMissionOrders(res.data));
+    axios.get('/api/work-certificates/user', { withCredentials: true })
+      .then(res => setWorkCertificates(res.data));
+  }, []);
+
+  const stats = [   
     {
-      title: t('pendingRequests'),
-      value: '5',
+      title: "كل طلبات الإجازة",
+      value: vacationCount,
       description: t('awaitingApproval'),
       icon: Calendar,
       color: 'from-cmc-blue to-cmc-blue-dark'
     },
     {
-      title: t('approvedRequests'),
-      value: '12',
+      title: "كل أوامر المهمة",
+      value: missionCount,
       description: t('thisMonth'),
       icon: CheckCircle,
       color: 'from-cmc-green to-emerald-600'
     },
     {
-      title: t('vacationDays'),
-      value: '15',
+      title: "كل شهادات العمل",
+      value: certificateCount,
       description: t('remaining'),
       icon: BarChart3,
       color: 'from-cmc-blue to-cmc-green'

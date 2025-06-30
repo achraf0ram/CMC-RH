@@ -42,7 +42,39 @@ import * as reshaper from "arabic-persian-reshaper";
 const reshape = reshaper.reshape;
 import bidi from "bidi-js";
 
-// Define helper functions
+// Define form schema and type at the top level
+const formSchema = z.object({
+  fullName: z.string().min(3, { message: "يرجى إدخال الاسم الكامل" }),
+  matricule: z.string().min(1, { message: "يرجى إدخال الرقم المالي" }),
+  echelle: z.string().optional(),
+  echelon: z.string().optional(),
+  grade: z.string().optional(),
+  fonction: z.string().optional(),
+  arabicFonction: z.string().optional(),
+  direction: z.string().optional(),
+  arabicDirection: z.string().optional(),
+  address: z.string().optional(),
+  arabicAddress: z.string().optional(),
+  phone: z.string().optional(),
+  leaveType: z.string().min(1, { message: "يرجى اختيار نوع الإجازة" }),
+  customLeaveType: z.string().optional(),
+  arabicCustomLeaveType: z.string().optional(),
+  duration: z.string().min(1, { message: "يرجى تحديد المدة" }),
+  arabicDuration: z.string().optional(),
+  startDate: z.date({ required_error: "يرجى تحديد تاريخ البداية" }),
+  endDate: z.date({ required_error: "يرجى تحديد تاريخ النهاية" }),
+  with: z.string().optional(),
+  arabicWith: z.string().optional(),
+  interim: z.string().optional(),
+  arabicInterim: z.string().optional(),
+  leaveMorocco: z.boolean().optional(),
+  signature: z.union([z.instanceof(File), z.string()]).optional(),
+  arabicFullName: z.string().optional(),
+});
+
+type FormData = z.infer<typeof formSchema>;
+
+// Define translateToArabic function outside the component
 const translateToArabic = (frenchText: string): string => {
   if (!frenchText || frenchText.trim() === "") return "";
   
@@ -95,6 +127,7 @@ const translateToArabic = (frenchText: string): string => {
   return arabicText !== frenchText ? arabicText : frenchText;
 };
 
+// Define formatArabicForPDF function outside the component (if needed by generatePDF)
 const formatArabicForPDF = (text: string): string => {
   if (!text || text.trim() === "") return "";
   
@@ -108,9 +141,6 @@ const formatArabicForPDF = (text: string): string => {
   }
 };
 
-// Export helper functions for use in the component
-export { translateToArabic, formatArabicForPDF };
-
 const VacationRequest = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [signaturePreview, setSignaturePreview] = useState<string | null>(null);
@@ -118,50 +148,6 @@ const VacationRequest = () => {
   const [showCustomLeaveType, setShowCustomLeaveType] = useState(false);
   const { language, t } = useLanguage();
   const logoPath = "/lovable-uploads/d44e75ac-eac5-4ed3-bf43-21a71c6a089d.png";
-
-  // Define form schema inside the component to access language
-  const formSchema = z.object({
-    fullName: z.string().min(3, { 
-      message: language === 'ar' ? "يرجى إدخال الاسم الكامل" : "Veuillez entrer le nom complet" 
-    }),
-    matricule: z.string().min(1, { 
-      message: language === 'ar' ? "يرجى إدخال الرقم المالي" : "Veuillez entrer le numéro matricule" 
-    }),
-    echelle: z.string().optional(),
-    echelon: z.string().optional(),
-    grade: z.string().optional(),
-    fonction: z.string().optional(),
-    arabicFonction: z.string().optional(),
-    direction: z.string().optional(),
-    arabicDirection: z.string().optional(),
-    address: z.string().optional(),
-    arabicAddress: z.string().optional(),
-    phone: z.string().optional(),
-    leaveType: z.string().min(1, { 
-      message: language === 'ar' ? "يرجى اختيار نوع الإجازة" : "Veuillez sélectionner le type de congé" 
-    }),
-    customLeaveType: z.string().optional(),
-    arabicCustomLeaveType: z.string().optional(),
-    duration: z.string().min(1, { 
-      message: language === 'ar' ? "يرجى تحديد المدة" : "Veuillez spécifier la durée" 
-    }),
-    arabicDuration: z.string().optional(),
-    startDate: z.date({ 
-      required_error: language === 'ar' ? "يرجى تحديد تاريخ البداية" : "Veuillez sélectionner la date de début" 
-    }),
-    endDate: z.date({ 
-      required_error: language === 'ar' ? "يرجى تحديد تاريخ النهاية" : "Veuillez sélectionner la date de fin" 
-    }),
-    with: z.string().optional(),
-    arabicWith: z.string().optional(),
-    interim: z.string().optional(),
-    arabicInterim: z.string().optional(),
-    leaveMorocco: z.boolean().optional(),
-    signature: z.union([z.instanceof(File), z.string()]).optional(),
-    arabicFullName: z.string().optional(),
-  });
-
-  type FormData = z.infer<typeof formSchema>;
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -624,43 +610,42 @@ for (let i = 0; i < arabicNotes.length; i++) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent mb-2">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100">
+      <div className="max-w-4xl mx-auto p-6 space-y-6">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent mb-2">
             {language === 'ar' ? 'طلب إجازة' : 'Demande de Congé'}
           </h1>
-          <p className="text-gray-600 text-sm md:text-base">
+          <p className="text-gray-600">
             {language === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة' : 'Veuillez remplir tous les champs requis'}
           </p>
         </div>
 
-        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-          <CardHeader className="bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-t-lg p-4 md:p-6">
-            <CardTitle className="text-lg md:text-xl font-semibold text-center">
+        <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm rounded-xl">
+          <CardHeader className="bg-gradient-to-r from-blue-600 to-green-600 text-white text-center flex flex-col items-center justify-center rounded-t-xl">
+            <CardTitle className="text-xl font-semibold text-center">
               {language === 'ar' ? 'معلومات طلب الإجازة' : 'Informations de la demande'}
             </CardTitle>
           </CardHeader>
 
-          <CardContent className="p-4 md:p-8">
+          <CardContent className="p-6">
             {!isSubmitted ? (
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   {/* Personal Information Section */}
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-slate-800 border-b border-blue-200 pb-2">
+                    <h3 className="text-lg font-semibold text-gray-800 border-b border-blue-200 pb-2">
                       {language === 'ar' ? 'المعلومات الشخصية' : 'Informations Personnelles'}
                     </h3>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Full Name - Single field */}
                       <FormField
                         control={form.control}
                         name="fullName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               {language === 'ar' ? 'الاسم الكامل (فرنسي)' : 'Nom & Prénom (Français)'} *
                             </FormLabel>
                             <FormControl>
@@ -670,18 +655,18 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
 
-                      {/* Arabic Full Name */}
+                      {/* Arabic Full Name - New field */}
                       <FormField
                         control={form.control}
                         name="arabicFullName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               الاسم الكامل (العربية) *
                             </FormLabel>
                             <FormControl>
@@ -692,7 +677,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 dir="rtl"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -703,7 +688,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                         name="matricule"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               {language === 'ar' ? 'الرقم المالي' : 'Matricule'} *
                             </FormLabel>
                             <FormControl>
@@ -713,7 +698,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -724,7 +709,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                         name="echelle"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               {language === 'ar' ? 'الرتبة' : 'Échelle'}
                             </FormLabel>
                             <FormControl>
@@ -734,7 +719,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -744,7 +729,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                         name="echelon"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               {language === 'ar' ? 'السلم' : 'Échelon'}
                             </FormLabel>
                             <FormControl>
@@ -754,7 +739,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -765,7 +750,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                         name="grade"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               {language === 'ar' ? 'الدرجة' : 'Grade'}
                             </FormLabel>
                             <FormControl>
@@ -775,7 +760,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -786,7 +771,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                         name="phone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               {language === 'ar' ? 'الهاتف' : 'Téléphone'}
                             </FormLabel>
                             <FormControl>
@@ -796,20 +781,20 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
 
                     {/* Function - Separate Arabic and French fields */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
                         name="fonction"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               Fonction (Français)
                             </FormLabel>
                             <FormControl>
@@ -819,7 +804,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -829,7 +814,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                         name="arabicFonction"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               الوظيفة (العربية)
                             </FormLabel>
                             <FormControl>
@@ -840,20 +825,20 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 dir="rtl"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
 
                     {/* Direction - Separate Arabic and French fields */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
                         name="direction"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               Direction (Français)
                             </FormLabel>
                             <FormControl>
@@ -863,7 +848,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -873,7 +858,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                         name="arabicDirection"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               المديرية (العربية)
                             </FormLabel>
                             <FormControl>
@@ -884,20 +869,20 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 dir="rtl"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
 
                     {/* Address - Separate Arabic and French fields */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
                         name="address"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               Adresse (Français)
                             </FormLabel>
                             <FormControl>
@@ -907,7 +892,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -917,7 +902,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                         name="arabicAddress"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               العنوان (العربية)
                             </FormLabel>
                             <FormControl>
@@ -928,7 +913,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 dir="rtl"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -937,17 +922,17 @@ for (let i = 0; i < arabicNotes.length; i++) {
 
                   {/* Leave Information Section */}
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-slate-800 border-b border-green-200 pb-2">
+                    <h3 className="text-lg font-semibold text-gray-800 border-b border-green-200 pb-2">
                       {language === 'ar' ? 'معلومات الإجازة' : 'Informations de Congé'}
                     </h3>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
                         name="leaveType"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               {language === 'ar' ? 'نوع الإجازة' : 'Nature de congé'} *
                             </FormLabel>
                             <Select 
@@ -980,7 +965,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 </SelectItem>
                               </SelectContent>
                             </Select>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -988,13 +973,13 @@ for (let i = 0; i < arabicNotes.length; i++) {
 
                     {/* Custom Leave Type Fields - Show when "Autre" is selected */}
                     {showCustomLeaveType && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <FormField
                           control={form.control}
                           name="customLeaveType"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-slate-700 font-medium">
+                              <FormLabel className="text-sm font-medium text-gray-700">
                                 نوع الإجازة المخصص (Français)
                               </FormLabel>
                               <FormControl>
@@ -1004,7 +989,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                   className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
                                 />
                               </FormControl>
-                              <FormMessage className="text-red-500 text-sm mt-1" />
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
@@ -1014,7 +999,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                           name="arabicCustomLeaveType"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-slate-700 font-medium">
+                              <FormLabel className="text-sm font-medium text-gray-700">
                                 نوع الإجازة المخصص (العربية)
                               </FormLabel>
                               <FormControl>
@@ -1025,7 +1010,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                   dir="rtl"
                                 />
                               </FormControl>
-                              <FormMessage className="text-red-500 text-sm mt-1" />
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
@@ -1033,13 +1018,13 @@ for (let i = 0; i < arabicNotes.length; i++) {
                     )}
 
                     {/* Duration - Separate Arabic and French fields */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
                         name="duration"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               Durée (Français) *
                             </FormLabel>
                             <FormControl>
@@ -1049,7 +1034,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -1059,7 +1044,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                         name="arabicDuration"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               المدة (العربية)
                             </FormLabel>
                             <FormControl>
@@ -1070,20 +1055,20 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 dir="rtl"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
 
                     {/* Date Range - Single fields */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
                         name="startDate"
                         render={({ field }) => (
                           <FormItem className="flex flex-col">
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               {language === 'ar' ? 'تاريخ البداية' : 'Date de début'} *
                             </FormLabel>
                             <Popover>
@@ -1117,7 +1102,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 />
                               </PopoverContent>
                             </Popover>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -1127,7 +1112,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                         name="endDate"
                         render={({ field }) => (
                           <FormItem className="flex flex-col">
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               {language === 'ar' ? 'تاريخ النهاية' : 'Date de fin'} *
                             </FormLabel>
                             <Popover>
@@ -1161,20 +1146,20 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 />
                               </PopoverContent>
                             </Popover>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
 
                     {/* With (Family) - Separate Arabic and French fields */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
                         name="with"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               Avec (famille) - Français
                             </FormLabel>
                             <FormControl>
@@ -1184,7 +1169,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -1194,7 +1179,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                         name="arabicWith"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               مع (العائلة) - العربية
                             </FormLabel>
                             <FormControl>
@@ -1205,20 +1190,20 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 dir="rtl"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
 
                     {/* Interim - Separate Arabic and French fields */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <FormField
                         control={form.control}
                         name="interim"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               Intérim (Nom et Fonction) - Français
                             </FormLabel>
                             <FormControl>
@@ -1228,7 +1213,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 className="border-blue-300 focus:border-blue-500 focus:ring-blue-200"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -1238,7 +1223,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                         name="arabicInterim"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               النيابة (الاسم والوظيفة) - العربية
                             </FormLabel>
                             <FormControl>
@@ -1249,7 +1234,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                                 dir="rtl"
                               />
                             </FormControl>
-                            <FormMessage className="text-red-500 text-sm mt-1" />
+                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -1269,7 +1254,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                             />
                           </FormControl>
                           <div className="space-y-1 leading-none">
-                            <FormLabel className="text-slate-700 font-medium">
+                            <FormLabel className="text-sm font-medium text-gray-700">
                               {language === 'ar' ? 'مغادرة التراب الوطني' : 'Quitter le territoire Marocain'}
                             </FormLabel>
                           </div>
@@ -1283,7 +1268,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                       name="signature"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-slate-700 font-medium">
+                          <FormLabel className="text-sm font-medium text-gray-700">
                             {language === 'ar' ? 'التوقيع (اختياري)' : 'Signature (optionnel)'}
                           </FormLabel>
                           <FormControl>
@@ -1306,13 +1291,13 @@ for (let i = 0; i < arabicNotes.length; i++) {
                               />
                             </div>
                           )}
-                          <FormMessage className="text-red-500 text-sm mt-1" />
+                          <FormMessage />
                         </FormItem>
                       )}
                     />
 
                     {/* Submit Button */}
-                    <div className="flex justify-center pt-4 md:pt-6">
+                    <div className="flex justify-center pt-6">
                       <Button 
                         type="submit" 
                         className="w-full md:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
@@ -1325,7 +1310,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                           </div>
                         ) : (
                           <>
-                            {language === 'ar' ? 'إرسال وتحميل PDF' : 'Envoyer et télécharger le PDF'}
+                            {language === 'ar' ? 'تحميل طلب الإجازة' : 'Télécharger la demande'}
                           </>
                         )}
                       </Button>
@@ -1335,13 +1320,11 @@ for (let i = 0; i < arabicNotes.length; i++) {
               </Form>
             ) : (
               <div className="text-center py-12">
-                <div className="h-16 w-16 md:h-20 md:w-20 rounded-full bg-gradient-to-r from-blue-600 to-green-600 flex items-center justify-center shadow-lg mx-auto mb-4">
-                  <CheckCircle className="h-8 w-8 md:h-10 md:w-10 text-white" />
-                </div>
-                <h3 className="text-xl md:text-2xl font-bold text-slate-800 mb-2">
+                <CheckCircle className="mx-auto h-16 w-16 text-green-500 mb-4" />
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">
                   {language === 'ar' ? 'تم إنشاء الطلب بنجاح!' : 'Demande générée avec succès!'}
                 </h3>
-                <p className="text-slate-600 mb-6">
+                <p className="text-gray-600 mb-6">
                   {language === 'ar' ? 'تم تحميل ملف PDF لطلب الإجازة' : 'Le fichier PDF de votre demande a été téléchargé'}
                 </p>
                 <Button 
@@ -1350,7 +1333,8 @@ for (let i = 0; i < arabicNotes.length; i++) {
                     form.reset();
                     setShowCustomLeaveType(false);
                   }}
-                  className="border-blue-500 text-blue-600 hover:bg-blue-50 px-6 md:px-8 py-2 md:py-3 rounded-lg text-sm md:text-base"
+                  variant="outline"
+                  className="border-blue-500 text-blue-600 hover:bg-blue-50"
                 >
                   {language === 'ar' ? 'طلب جديد' : 'Nouvelle demande'}
                 </Button>

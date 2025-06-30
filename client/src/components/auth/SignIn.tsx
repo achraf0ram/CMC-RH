@@ -1,14 +1,13 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Loader2, User, Lock } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { Loader2, LogIn } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 export const SignIn = () => {
-
   const navigate = useNavigate();
   const { login } = useAuth();
   const { toast } = useToast();
@@ -16,34 +15,32 @@ export const SignIn = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       const success = await login(email, password);
-      if (success ) {
+
+      if (success) {
         toast({
-          title: "تم تسجيل الدخول بنجاح",
-          description: "مرحباً بك في منصة CMC",
+          title: "Connexion réussie",
+          description: "Bienvenue sur la plateforme CMC",
         });
-        navigate("/", { replace: true });
-  
-        console.log("Login successful", { email, password });
+        window.location.reload();
       } else {
         toast({
           variant: "destructive",
-          title: "خطأ في تسجيل الدخول",
-          description: "يرجى التحقق من بريدك الإلكتروني وكلمة المرور",
+          title: "Erreur de connexion",
+          description: "Veuillez vérifier votre e-mail et votre mot de passe",
         });
       }
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "خطأ في تسجيل الدخول",
-        description: "حدث خطأ أثناء محاولة تسجيل الدخول. يرجى المحاولة مرة أخرى",
+        title: "Erreur de connexion",
+        description:
+          "Une erreur s'est produite. Veuillez réessayer",
       });
     } finally {
       setIsLoading(false);
@@ -51,79 +48,88 @@ export const SignIn = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-9 shadow-lg">
-        <div className="mb-7 text-center">
-          <img 
-            src="/lovable-uploads/61196920-7ed5-45d7-af8f-330e58178ad2.png" 
-            alt="CMC" 
-            className="mx-auto h-16 w-auto mb-4" 
-          />
-          <h2 className="text-2xl font-bold text-[#0FA0CE]">CMC</h2>
-          <p className="text-gray-600 mt-2">منصة إدارة طلبات الموارد البشرية</p>
+    <div
+      className="flex min-h-screen items-center justify-center bg-cover bg-center p-4"
+      style={{ backgroundImage: "url('/lovable-uploads/CMC CASA -.png')" }}
+    >
+      <div className="absolute inset-0 bg-slate-100/80 backdrop-blur-md" />
+      <div className="relative z-10 w-full max-w-md">
+        <div className="mb-8 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-green-500 rounded-full mb-4 shadow-lg">
+            <LogIn className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-slate-800">Se connecter</h1>
+          <p className="mt-2 text-slate-500">
+            Entrez vos informations pour accéder à votre compte
+          </p>
         </div>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">البريد الإلكتروني</Label>
-            <div className="relative">
-              <Input
-                id="email"
-                type="email"
-                placeholder="أدخل البريد الإلكتروني"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-10 pr-4"
-                required
-                dir="rtl"
-              />
-              <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            </div>
+
+        <div className="overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className="bg-gradient-to-r from-blue-600 to-green-500 p-4 text-center">
+            <h2 className="text-2xl font-bold text-white tracking-wider">CMC</h2>
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="password">كلمة المرور</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type="password"
-                placeholder="أدخل كلمة المرور"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-10 pr-4"
-                required
-                dir="rtl"
-              />
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            </div>
+          <div className="p-7">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-left block">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="exemple@ofppt.ma"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  dir="ltr"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-left block">Mot de passe</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Entrez votre mot de passe"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  dir="ltr"
+                />
+              </div>
+              
+              <div className="text-sm text-left">
+                  <Button variant="link" type="button" className="p-0 text-blue-600 hover:text-blue-700 hover:underline" onClick={() => navigate('/forgot-password')}>
+                      Mot de passe oublié ?
+                  </Button>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white hover:opacity-90"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Connexion...
+                  </>
+                ) : (
+                  "Se connecter"
+                )}
+              </Button>
+
+              <div className="mt-4 text-center text-sm">
+                Vous n'avez pas de compte ?{" "}
+                <Button
+                  variant="link"
+                  className="p-0 text-blue-600 hover:text-blue-700 hover:underline"
+                  onClick={() => navigate("/register")}
+                >
+                  Créer un nouveau compte
+                </Button>
+              </div>
+            </form>
           </div>
-          
-          <Button 
-            type="submit" 
-            className="w-full bg-[#0EA5E9] hover:bg-[#0EA5E9]/90"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                جاري تسجيل الدخول...
-              </>
-            ) : (
-              "تسجيل الدخول"
-            )}
-          </Button>
-          
-          <div className="text-center mt-4 text-sm">
-            ليس لديك حساب؟{" "}
-            <Button
-              variant="link"
-              className="p-0 text-[#0EA5E9]"
-              onClick={() => navigate("/register")}
-            >
-              إنشاء حساب جديد
-            </Button>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, User, Lock, Mail } from "lucide-react";
+import { Loader2, UserPlus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,37 +17,37 @@ export const SignUp = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password_confirmation, setPasswordConfirmation] = useState("");
+  const [phone, setPhone] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const result = await register(name, email, password, password_confirmation);
+      const result = await register(name, email, password, password_confirmation, phone);
 
       if (result.success) {
         toast({
-          title: "تم إنشاء الحساب بنجاح",
-          description: "مرحباً بك في منصة CMC",
+          title: "Compte créé avec succès",
+          description: "Bienvenue sur la plateforme CMC",
         });
         navigate("/");
       } else {
         toast({
           variant: "destructive",
-          title: "خطأ في إنشاء الحساب",
+          title: "Erreur lors de la création du compte",
           description:
             Object.values(result.errors || {})
               .flat()
-              .join(", ") || "حدث خطأ غير معروف",
+              .join(", ") || "Une erreur inconnue est survenue",
         });
       }
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "خطأ في إنشاء الحساب",
+        title: "Erreur lors de la création du compte",
         description:
-          error.response?.data?.message ||
-          "حدث خطأ أثناء محاولة إنشاء الحساب. يرجى المحاولة مرة أخرى",
+          "Une erreur s'est produite. Veuillez réessayer",
       });
     } finally {
       setIsLoading(false);
@@ -55,115 +55,77 @@ export const SignUp = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-lg">
+    <div
+      className="flex min-h-screen items-center justify-center bg-cover bg-center p-4"
+      style={{ backgroundImage: "url('/lovable-uploads/CMC CASA -.png')" }}
+    >
+      <div className="absolute inset-0 bg-slate-100/80 backdrop-blur-md" />
+      <div className="relative z-10 w-full max-w-md">
         <div className="mb-6 text-center">
-          <img
-            src="/lovable-uploads/61196920-7ed5-45d7-af8f-330e58178ad2.png"
-            alt="CMC"
-            className="mx-auto h-16 w-auto mb-4"
-          />
-          <h2 className="text-2xl font-bold text-[#0FA0CE]">CMC</h2>
-          <p className="text-gray-600 mt-2">منصة إدارة طلبات الموارد البشرية</p>
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-r from-blue-600 to-green-500 rounded-full mb-4 shadow-lg">
+            <UserPlus className="w-7 h-7 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-slate-800">Créer un compte</h1>
+          <p className="mt-2 text-slate-500">
+            Entrez vos informations pour créer un nouveau compte
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4" dir="rtl">
-          <div className="space-y-2">
-            <Label htmlFor="name">الاسم الكامل</Label>
-            <div className="relative">
-              <Input
-                id="name"
-                type="text"
-                placeholder="أدخل الاسم الكامل"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="pl-10 pr-4"
-                required
-                dir="rtl"
-              />
-              <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            </div>
+        <div className="overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className="bg-gradient-to-r from-blue-600 to-green-500 p-4 text-center">
+            <h2 className="text-2xl font-bold text-white tracking-wider">CMC</h2>
           </div>
+          <div className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-2">
+              <div className="space-y-1">
+                <Label htmlFor="name" className="text-left block">Nom et prénom</Label>
+                <Input id="name" type="text" placeholder="Entrez votre nom et prénom" value={name} onChange={(e) => setName(e.target.value)} required dir="ltr" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="email" className="text-left block">E-mail</Label>
+                <Input id="email" type="email" placeholder="exemple@ofppt.ma" value={email} onChange={(e) => setEmail(e.target.value)} required dir="ltr" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="phone" className="text-left block">Téléphone</Label>
+                <Input id="phone" type="tel" placeholder="0612345678" value={phone} onChange={(e) => setPhone(e.target.value)} required dir="ltr" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="password" className="text-left block">Mot de passe</Label>
+                <Input id="password" type="password" placeholder="Entrez votre mot de passe" value={password} onChange={(e) => setPassword(e.target.value)} required dir="ltr" />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="password_confirmation" className="text-left block">Confirmer le mot de passe</Label>
+                <Input id="password_confirmation" type="password" placeholder="Confirmez votre mot de passe" value={password_confirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} required dir="ltr" />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">البريد الإلكتروني</Label>
-            <div className="relative">
-              <Input
-                id="email"
-                type="email"
-                placeholder="أدخل البريد الإلكتروني"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-10 pr-4"
-                required
-                dir="rtl"
-              />
-              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            </div>
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white hover:opacity-90"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Création...
+                  </>
+                ) : (
+                  "Créer un compte"
+                )}
+              </Button>
+
+              <div className="mt-3 text-center text-sm">
+                Vous avez déjà un compte ?{" "}
+                <Button
+                  variant="link"
+                  className="p-0 text-blue-600 hover:text-blue-700 hover:underline"
+                  onClick={() => navigate("/login")}
+                >
+                  Se connecter
+                </Button>
+              </div>
+            </form>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">كلمة المرور</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type="password"
-                placeholder="أدخل كلمة المرور"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-10 pr-4"
-                required
-                dir="rtl"
-                minLength={8}
-              />
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password_confirmation">تأكيد كلمة المرور</Label>
-            <div className="relative">
-              <Input
-                id="password_confirmation"
-                type="password"
-                placeholder="أدخل تأكيد كلمة المرور"
-                value={password_confirmation}
-                onChange={(e) => setPasswordConfirmation(e.target.value)}
-                className="pl-10 pr-4"
-                required
-                dir="rtl"
-                minLength={8}
-              />
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            </div>
-          </div>
-
-          <Button
-            type="submit"
-            className="w-full bg-[#0EA5E9] hover:bg-[#0EA5E9]/90"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                جاري إنشاء الحساب...
-              </>
-            ) : (
-              "إنشاء حساب"
-            )}
-          </Button>
-
-          <div className="text-center mt-4 text-sm">
-            لديك حساب بالفعل؟{" "}
-            <Button
-              variant="link"
-              className="p-0 text-[#0EA5E9]"
-              onClick={() => navigate("/login")}
-            >
-              تسجيل الدخول
-            </Button>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
   );

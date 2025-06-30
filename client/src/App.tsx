@@ -15,6 +15,10 @@ import NotFound from "./pages/NotFound";
 import SignInPage from "./pages/SignIn";
 import SignUpPage from "./pages/SignUp";
 import ArabicPdfGenerator from "./components/ArabicPdfGenerator";
+import { ResetPassword } from "./components/auth/ResetPassword";
+import { ForgotPassword } from "./components/auth/ForgotPassword";
+import SalaryDomiciliation from "./pages/SalaryDomiciliation";
+import AnnualIncome from "./pages/AnnualIncome";
 
 
 const queryClient = new QueryClient();
@@ -27,7 +31,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <div className="flex h-screen items-center justify-center">Chargement...</div>;
   }
 
-  if (isAuthenticated) {
+  if (!isAuthenticated) {
     console.log("User is not authenticated");
     return <Navigate to="/login" replace />;
   }
@@ -77,6 +81,22 @@ const App = () => (
                   </PublicRoute>
                 }
               />
+              <Route
+                path='/reset-password'
+                element={
+                  <PublicRoute>
+                    <ResetPassword />
+                  </PublicRoute>
+                }
+              />
+              <Route
+                path='/forgot-password'
+                element={
+                  <PublicRoute>
+                    <ForgotPassword />
+                  </PublicRoute>
+                }
+              />
 
               {/* Protected routes */}
               <Route
@@ -109,6 +129,14 @@ const App = () => (
                 <Route
                   path='arabic-pdf'
                   element={<ArabicPdfGenerator />}
+                />
+                <Route
+                  path='salary-domiciliation'
+                  element={<SalaryDomiciliation />}
+                />
+                <Route
+                  path='annual-income'
+                  element={<AnnualIncome />}
                 />
               </Route>
               <Route

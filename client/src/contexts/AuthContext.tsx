@@ -22,7 +22,8 @@ interface AuthContextType {
     name: string,
     email: string,
     password: string,
-    passwordConfirmation: string
+    passwordConfirmation: string,
+    phone: string
   ) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
   logout: () => Promise<void>;
   error: string | null;
@@ -100,7 +101,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     name: string,
     email: string,
     password: string,
-    passwordConfirmation: string
+    passwordConfirmation: string,
+    phone: string
   ): Promise<{ success: boolean; errors?: Record<string, string[]> }> => {
     setError(null);
     setValidationErrors(null);
@@ -111,6 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email,
         password,
         password_confirmation: passwordConfirmation,
+        phone,
       });
       setUser(res.data.user || res.data); // Adjust to your Laravel response
       return { success: true };

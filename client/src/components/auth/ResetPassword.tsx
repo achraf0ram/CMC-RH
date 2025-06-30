@@ -1,12 +1,10 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -17,21 +15,31 @@ import {
 } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Lock, Eye, EyeOff } from "lucide-react";
+import { axiosInstance } from "../Api/axios";
 
 const formSchema = z.object({
-  password: z.string().min(6, { message: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" }),
-  confirmPassword: z.string().min(1, { message: "تأكيد كلمة المرور مطلوب" }),
+  password: z.string().min(6, { message: "Le mot de passe doit contenir au moins 6 caractères" }),
+  confirmPassword: z.string().min(1, { message: "La confirmation du mot de passe est requise" }),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "كلمات المرور غير متطابقة",
+  message: "Les mots de passe ne correspondent pas",
   path: ["confirmPassword"],
 });
+
+function useQuery() {
+  return new URLSearchParams(useLocation().search);
+}
 
 export const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
+  const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const query = useQuery();
+  const token = query.get("token") || "";
+  const email = query.get("email") || "";
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -43,75 +51,111 @@ export const ResetPassword = () => {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsLoading(true);
+    setApiError("");
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log("Password reset:", values);
-      
+      await axiosInstance.get('/sanctum/csrf-cookie');
+      await axiosInstance.post(
+        '/reset-password',
+        {
+          token,
+          email,
+          password: values.password,
+          password_confirmation: values.confirmPassword,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      setSuccess(true);
       toast({
-        title: "تم تحديث كلمة المرور",
-        description: "تم تحديث كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول",
-        className: "bg-green-50 border-green-200",
+        title: "Mot de passe mis à jour",
+        description: "Votre mot de passe a été mis à jour avec succès.",
       });
-      
-      navigate("/login");
-    } catch (error) {
-      toast({
-        title: "خطأ",
-        description: "حدث خطأ أثناء تحديث كلمة المرور. يرجى المحاولة مرة أخرى",
-        variant: "destructive",
-      });
+      setTimeout(() => navigate("/login"), 2000);
+    } catch (error: any) {
+      setApiError("Une erreur s'est produite lors de la mise à jour. Veuillez vérifier le lien ou réessayer.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen cmc-page-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-6 md:mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-cmc-blue-light to-cmc-green-light rounded-full mb-4 shadow-lg">
-            <Lock className="w-8 h-8 text-cmc-blue" />
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-2">إعادة تعيين كلمة المرور</h1>
-          <p className="text-slate-600">أدخل كلمة المرور الجديدة</p>
+  if (!token || !email) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-cover bg-center p-4" style={{ backgroundImage: "url('/lovable-uploads/CMC CASA -.png')" }}>
+        <div className="absolute inset-0 bg-slate-100/80 backdrop-blur-md" />
+        <div className="relative z-10 w-full max-w-md text-center bg-white rounded-2xl shadow-2xl p-8">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Lien invalide</h2>
+          <p className="mb-6">Le lien de réinitialisation est invalide ou incomplet.</p>
+          <Button asChild className="bg-gradient-to-r from-blue-600 to-green-500 text-white">
+            <Link to="/forgot-password">Demander un nouveau lien</Link>
+          </Button>
         </div>
+      </div>
+    );
+  }
 
-        <Card className="cmc-card">
-          <CardHeader className="cmc-gradient text-white rounded-t-lg p-6">
-            <CardTitle className="text-xl font-semibold text-center">كلمة مرور جديدة</CardTitle>
-          </CardHeader>
-          <CardContent className="p-6 md:p-8">
+  if (success) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-cover bg-center p-4" style={{ backgroundImage: "url('/lovable-uploads/CMC CASA -.png')" }}>
+        <div className="absolute inset-0 bg-slate-100/80 backdrop-blur-md" />
+        <div className="relative z-10 w-full max-w-md text-center bg-white rounded-2xl shadow-2xl p-8">
+          <h2 className="text-2xl font-bold text-green-600 mb-4">Mot de passe mis à jour !</h2>
+          <p className="mb-6">Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.</p>
+          <Button asChild className="bg-gradient-to-r from-blue-600 to-green-500 text-white">
+            <Link to="/login">Aller à la connexion</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center bg-cover bg-center p-4"
+      style={{ backgroundImage: "url('/lovable-uploads/CMC CASA -.png')" }}
+    >
+      <div className="absolute inset-0 bg-slate-100/80 backdrop-blur-md" />
+      <div className="relative z-10 w-full max-w-md">
+        <div className="mb-8 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-green-500 rounded-full mb-4 shadow-lg">
+            <Lock className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-slate-800">Réinitialiser le mot de passe</h1>
+          <p className="mt-2 text-slate-500">
+            Entrez votre nouveau mot de passe
+          </p>
+        </div>
+        <div className="overflow-hidden rounded-2xl bg-white shadow-2xl">
+          <div className="bg-gradient-to-r from-blue-600 to-green-500 p-4 text-center">
+            <h2 className="text-2xl font-bold text-white tracking-wider">CMC</h2>
+          </div>
+          <div className="p-7">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-slate-700 font-medium">كلمة المرور الجديدة</FormLabel>
+                      <FormLabel className="text-left block">Nouveau mot de passe</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Input
                             type={showPassword ? "text" : "password"}
-                            placeholder="أدخل كلمة المرور الجديدة"
-                            className="cmc-input pr-10"
+                            placeholder="Entrez le nouveau mot de passe"
                             {...field}
+                            dir="ltr"
                           />
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="absolute left-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                             onClick={() => setShowPassword(!showPassword)}
                           >
-                            {showPassword ? (
-                              <EyeOff className="h-4 w-4 text-slate-400" />
-                            ) : (
-                              <Eye className="h-4 w-4 text-slate-400" />
-                            )}
+                            {showPassword ? <EyeOff className="h-4 w-4 text-slate-400" /> : <Eye className="h-4 w-4 text-slate-400" />}
                           </Button>
                         </div>
                       </FormControl>
@@ -119,33 +163,28 @@ export const ResetPassword = () => {
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-slate-700 font-medium">تأكيد كلمة المرور</FormLabel>
+                      <FormLabel className="text-left block">Confirmer le mot de passe</FormLabel>
                       <FormControl>
                         <div className="relative">
                           <Input
                             type={showConfirmPassword ? "text" : "password"}
-                            placeholder="أعد إدخال كلمة المرور"
-                            className="cmc-input pr-10"
+                            placeholder="Confirmez le mot de passe"
                             {...field}
+                            dir="ltr"
                           />
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="absolute left-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                           >
-                            {showConfirmPassword ? (
-                              <EyeOff className="h-4 w-4 text-slate-400" />
-                            ) : (
-                              <Eye className="h-4 w-4 text-slate-400" />
-                            )}
+                            {showConfirmPassword ? <EyeOff className="h-4 w-4 text-slate-400" /> : <Eye className="h-4 w-4 text-slate-400" />}
                           </Button>
                         </div>
                       </FormControl>
@@ -153,18 +192,25 @@ export const ResetPassword = () => {
                     </FormItem>
                   )}
                 />
-
+                {apiError && (
+                  <div className="text-red-600 text-sm text-center font-medium">{apiError}</div>
+                )}
                 <Button
                   type="submit"
-                  className="w-full cmc-button-primary py-3"
+                  className="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white hover:opacity-90"
                   disabled={isLoading}
                 >
-                  {isLoading ? "جاري التحديث..." : "تحديث كلمة المرور"}
+                  {isLoading ? "Mise à jour..." : "Mettre à jour le mot de passe"}
                 </Button>
               </form>
             </Form>
-          </CardContent>
-        </Card>
+            <div className="mt-6 text-center text-sm text-slate-500">
+              <Link to="/login" className="font-medium text-blue-600 hover:underline">
+                &larr; Retour à la page de connexion
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

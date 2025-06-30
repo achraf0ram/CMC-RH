@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,6 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
+import axios from "axios";
 
 // import { Label } from "@/components/ui/label";
 // import { useToast } from "@/hooks/use-toast";
@@ -48,13 +50,14 @@ const passwordFormSchema = z.object({
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const { t } = useLanguage();
+  const { user, isLoading } = useAuth();
   
   const profileForm = useForm<z.infer<typeof profileFormSchema>>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      name: "Achraf Ramdani",
-      email: "ram.m@example.com",
-      phone: "0501234567",
+      name: user?.name || "",
+      email: user?.email || "",
+      phone: "", // Will update below if user has phone
     },
   });
 
@@ -76,12 +79,40 @@ const Settings = () => {
     },
   });
 
+  // Update form values when user data is loaded
+  useEffect(() => {
+    if (user) {
+      profileForm.reset({
+        name: user.name || "",
+        email: user.email || "",
+        phone: (user as any).phone || "", // Use type assertion to avoid TS error
+      });
+    }
+  }, [user]);
+
+  // Show loading indicator while user data is loading
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center">Chargement...</div>;
+  }
+
   function onProfileSubmit(values: z.infer<typeof profileFormSchema>) {
-    console.log(values);
-    toast({
-      title: "Les informations ont été mises à jour",
-      description: "Les modifications ont été enregistrées avec succès",
-    });
+    axios.put('/api/user/profile', {
+      name: values.name,
+      email: values.email,
+      phone: values.phone
+    }, { withCredentials: true })
+      .then(res => {
+        toast({
+          title: "Les informations ont été mises à jour",
+          description: "Les modifications ont été enregistrées avec succès",
+        });
+      })
+      .catch(err => {
+        toast({
+          title: "Erreur lors de la mise à jour des informations",
+          description: "Veuillez réessayer plus tard ou contacter l'administrateur",
+        });
+      });
   }
 
   function onNotificationsSubmit(values: z.infer<typeof notificationsFormSchema>) {

@@ -24,6 +24,7 @@ import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle } from "lucide-react";
+import axios from "axios";
 
 // Import the Arabic font data
 import { AmiriFont } from "../fonts/AmiriFont";
@@ -63,7 +64,10 @@ const WorkCertificate = () => {
   const handleSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
       setIsGenerating(true);
-      
+
+      // إرسال البيانات إلى السيرفر
+      await axios.post("http://localhost:8000/api/work-certificates", data);
+
       // Generate PDF
       const doc = new jsPDF("p", "mm", "a4");
       const currentDate = format(new Date(), "dd/MM/yyyy");

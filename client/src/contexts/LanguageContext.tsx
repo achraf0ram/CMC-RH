@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState } from 'react';
 
 type Language = 'ar' | 'fr';
@@ -81,11 +80,24 @@ const translations: Translations = {
     notificationsTab: "الإشعارات",
     passwordTab: "كلمة المرور",
     // ترجمات جديدة للمساعد الذكي
-    aiAssistant: "مساعد CMC الذكي",
+    
     cmcFullName: "مدينة المهن والكفاءات",
     aiHelp: "كيف يمكنني مساعدتك؟",
     typingIndicator: "يكتب...",
     aiError: "حدث خطأ في المساعد الذكي",
+    salaryDomiciliation: "شهادة تحويل الراتب غير القابلة للإلغاء",
+    annualIncome: "شهادة الدخل السنوي",
+    dashboardMainDesc: "لوحة التحكم الرئيسية",
+    allVacationRequests: "كل طلبات الإجازة",
+    allMissionOrders: "كل أوامر المهمة",
+    allWorkCertificates: "كل شهادات العمل",
+    quickActions: "الإجراءات السريعة",
+    newVacationRequest: "طلب إجازة جديد",
+    newVacationRequestDesc: "تقديم طلب إجازة سنوية أو مرضية",
+    workCertificateAction: "شهادة عمل",
+    workCertificateActionDesc: "طلب شهادة عمل أو راتب",
+    missionOrderAction: "أمر مهمة",
+    missionOrderActionDesc: "تقديم طلب أمر مهمة",
   },
   fr: {
     home: "Accueil",
@@ -163,6 +175,19 @@ const translations: Translations = {
     aiHelp: "Comment puis-je vous aider?",
     typingIndicator: "Tape...",
     aiError: "Erreur dans l'assistant IA",
+    salaryDomiciliation: "Attestation de domiciliation irrévocable de salaire",
+    annualIncome: "Attestation de revenus annuels",
+    dashboardMainDesc: "Tableau de bord principal",
+    allVacationRequests: "Toutes les demandes de congé",
+    allMissionOrders: "Tous les ordres de mission",
+    allWorkCertificates: "Toutes les attestations de travail",
+    quickActions: "Actions rapides",
+    newVacationRequest: "Nouvelle demande de congé",
+    newVacationRequestDesc: "Soumettre une demande de congé annuel ou maladie",
+    workCertificateAction: "Attestation de travail",
+    workCertificateActionDesc: "Demander une attestation de travail ou de salaire",
+    missionOrderAction: "Ordre de mission",
+    missionOrderActionDesc: "Soumettre une demande d'ordre de mission",
   }
 };
 

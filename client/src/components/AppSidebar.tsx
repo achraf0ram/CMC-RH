@@ -11,6 +11,8 @@ import {
   ChevronRight,
   ChevronLeft,
   Menu,
+  CreditCard,
+  DollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,10 +28,12 @@ export const AppSidebar = () => {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   
-
-  const menuItems = [
+console.log(user);
+  const baseMenuItems = [
     { icon: Home, name: 'home', path: "/" },
     { icon: FileText, name: 'workCertificate', path: "/work-certificate" },
+    { icon: CreditCard, name: 'salaryDomiciliation', path: "/salary-domiciliation" },
+    { icon: DollarSign, name: 'annualIncome', path: "/annual-income" },
     { icon: ClipboardCheck, name: 'missionOrder', path: "/mission-order" },
     { icon: Calendar, name: 'vacationRequest', path: "/vacation-request" },
     { icon: Settings, name: 'settings', path: "/settings" },
@@ -110,7 +114,7 @@ export const AppSidebar = () => {
 
         {/* Navigation */}
         <div className='flex-1 py-4 flex flex-col gap-2'>
-          {menuItems.map((item) => (
+          {baseMenuItems.map((item) => (
             <Link
               to={item.path}
               key={item.path}
@@ -123,7 +127,19 @@ export const AppSidebar = () => {
                   "hover:bg-[#E8F5E9] hover:text-[#2E7D32]"
                 )}>
                 <item.icon size={20} />
-                {!collapsed && <span>{t(item.name)}</span>}
+                {!collapsed && (
+                  <span
+                    className='block max-w-[170px] overflow-hidden whitespace-nowrap relative group'
+                    style={{ position: 'relative' }}
+                  >
+                    <span
+                      className="inline-block truncate group-hover:animate-marquee"
+                      style={{ minWidth: '100%' }}
+                    >
+                      {t(item.name)}
+                    </span>
+                  </span>
+                )}
               </Button>
             </Link>
           ))}

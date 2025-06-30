@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import jsPDF from "jspdf";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
 
 // Import the Arabic font data
 import { AmiriFont } from "../fonts/AmiriFont";
@@ -77,9 +78,17 @@ const MissionOrder = () => {
 
   // دالة للإرسال
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    setIsGenerating(true);
     try {
-      setIsGenerating(true);
-      console.log(values);
+      // Step 1: Send data to the backend
+      const response = await axios.post('http://localhost:8000/api/mission-orders', values, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      console.log('Backend response:', response.data);
+
+      // Step 2: Generate PDF
       await generatePDF(values);
       setIsSubmitted(true);
       
@@ -91,7 +100,7 @@ const MissionOrder = () => {
         className: "bg-green-50 border-green-200",
       });
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error submitting mission order:", error);
       toast({
         title: "خطأ",
         description: "حدث خطأ أثناء معالجة الطلب. يرجى المحاولة مرة أخرى.",
