@@ -200,7 +200,7 @@ const Settings = () => {
                           <FormItem>
                             <FormLabel className="text-slate-700 font-medium">{t('email')}</FormLabel>
                             <FormControl>
-                              <Input {...field} className="border-blue-300 focus:border-blue-500 focus:ring-blue-200" />
+                              <Input {...field} className="border-blue-300 focus:border-blue-500 focus:ring-blue-200" readOnly disabled />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

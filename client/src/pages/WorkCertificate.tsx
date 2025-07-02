@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,6 +25,7 @@ import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle } from "lucide-react";
 import axios from "axios";
+import { useAuth } from '@/contexts/AuthContext';
 
 // Import the Arabic font data
 import { AmiriFont } from "../fonts/AmiriFont";
@@ -36,6 +37,7 @@ const WorkCertificate = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const logoPath = "/lovable-uploads/d44e75ac-eac5-4ed3-bf43-21a71c6a089d.png";
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Define form schema inside the component to access the language context
   const formSchema = z.object({
@@ -61,17 +63,18 @@ const WorkCertificate = () => {
     },
   });
 
+  useEffect(() => {
+    if (user && user.name) {
+      form.setValue('fullName', user.name);
+    }
+  }, [user]);
+
   const handleSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
       setIsGenerating(true);
-
-      // إرسال البيانات إلى السيرفر
-      await axios.post("http://localhost:8000/api/work-certificates", data);
-
-      // Generate PDF
+      // Generate PDF from form data
       const doc = new jsPDF("p", "mm", "a4");
       const currentDate = format(new Date(), "dd/MM/yyyy");
-
       // Load and add logo
       try {
         const img = new Image();
@@ -83,49 +86,35 @@ const WorkCertificate = () => {
       } catch (error) {
         console.error("Error loading logo:", error);
       }
-
       // --- Arabic Font Setup ---
-      console.log("Adding Amiri font to VFS...");
       doc.addFileToVFS("Amiri-Regular.ttf", AmiriFont);
-      console.log("Amiri font added to VFS. Adding font to doc...");
       doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
-      console.log("Amiri font added to doc.");
-      
       // Set font for Latin text (like French)
       doc.setFont("helvetica", "normal");
       doc.setFontSize(12);
       doc.text("N/Réf. : OFP/DR CASA SETTAT/DAAL/SRRH /N°", 20, 45);
       doc.text(`Casablanca, le ${currentDate}`, 140, 45);
-
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
       doc.text("ATTESTATION DE TRAVAIL", 75, 65);
-
       doc.setFont("helvetica", "normal");
       doc.setFontSize(12);
       doc.text("Nous soussignés, Directeur Régional Casablanca-Settat de l'Office de la", 20, 75);
       doc.text("Formation Professionnelle et de la Promotion du Travail (OFPPT), attestons", 20, 80);
       doc.text("que :", 20, 85);
-
       doc.text(`Monsieur : ${data.fullName}`, 20, 95);
       doc.text(`Matricule : ${data.matricule}`, 20, 105);
       doc.text(`Grade : ${data.grade || ""}`, 20, 115);
       doc.text(`Est employé au sein de notre organisme depuis le : ${data.hireDate || ""}`, 20, 125);
       doc.text(`En qualité de : ${data.function || ""}`, 20, 135);
-
       doc.text("La présente attestation est délivrée à l'intéressé pour servir et valoir ce que de droit.", 20, 165);
-
       // --- Set font for Arabic text ---
-      console.log("Setting font to Amiri...");
       doc.setFont('Amiri', 'normal');
-      console.log("Font set to Amiri.");
-      
       doc.setFontSize(9);
       doc.text("المديرية الجهوية لجهة الدارالبيضاء – سطات", 190, 230, { align: "right" });
       doc.text( " زنقة الكابورال إدريس اشباكو,50", 190, 234, { align: "right" });
       doc.text("عين البرجة - الدار البيضاء", 190, 238, { align: "right" });
       doc.text("الهاتف : 82 00 60 22 05 - الفاكس : 65 6039 22 05", 190, 242, { align: "right" });
-
       // Add French text for the footer on the left side
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
@@ -133,20 +122,33 @@ const WorkCertificate = () => {
       doc.text("50, rue Caporal Driss Chbakou", 20, 234);
       doc.text("Ain Bordja-Casablanca", 20, 238);
       doc.text("Tél :05 22 60 00 82 - Fax :05 22 6039 65", 20, 242);
-
-      // Save PDF
+      // Save PDF as Blob
+      const pdfBlob = doc.output("blob");
+      // Download PDF for user
       doc.save("attestation_de_travail.pdf");
-      
+      // Prepare FormData
+      const formData = new FormData();
+      formData.append("fullName", data.fullName);
+      formData.append("matricule", data.matricule);
+      formData.append("grade", data.grade || "");
+      formData.append("hireDate", data.hireDate || "");
+      formData.append("function", data.function || "");
+      formData.append("purpose", data.purpose);
+      formData.append("additionalInfo", data.additionalInfo || "");
+      formData.append("type", "workCertificate");
+      formData.append("pdf", pdfBlob, "attestation_de_travail.pdf");
+      // Send to backend
+      await axios.post("http://localhost:8000/api/work-certificates", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        withCredentials: true,
+      });
       setIsSubmitted(true);
-
-      // Show success toast
       toast({
         title: "تم بنجاح",
         description: "تم إنشاء شهادة العمل وتحميلها بنجاح",
         variant: "default",
         className: "bg-green-50 border-green-200",
       });
-
     } catch (error) {
       console.error("Error:", error);
       toast({
@@ -169,13 +171,13 @@ const WorkCertificate = () => {
                 <CheckCircle className="h-8 w-8 md:h-10 md:w-10 text-white" />
               </div>
               <div>
-                <h2 className="text-xl md:text-2xl font-bold mb-2 md:mb-3 text-slate-800">تم الإرسال بنجاح</h2>
-                <p className="text-slate-600 leading-relaxed mb-4 md:mb-6 text-sm md:text-base">تم إرسال طلب شهادة العمل بنجاح وسيتم معالجته قريباً</p>
+                <h2 className="text-xl md:text-2xl font-bold mb-2 md:mb-3 text-slate-800">{t('successTitle')}</h2>
+                <p className="text-slate-600 leading-relaxed mb-4 md:mb-6 text-sm md:text-base">{t('successDescWork')}</p>
                 <Button 
                   onClick={() => setIsSubmitted(false)}
                   className="border-blue-500 text-blue-600 hover:bg-blue-50 px-6 md:px-8 py-2 md:py-3 rounded-lg text-sm md:text-base"
                 >
-                  إرسال طلب جديد
+                  {t('newRequestBtn')}
                 </Button>
               </div>
             </div>

@@ -21,5 +21,8 @@ class MissionOrder extends Model
         'start_time',
         'end_time',
         'additional_info',
+        'user_id',
+        'full_name',
+        'type',
     ];
 }

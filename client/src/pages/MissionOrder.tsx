@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -28,6 +28,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import jsPDF from "jspdf";
 import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
+import { useAuth } from '@/contexts/AuthContext';
 
 // Import the Arabic font data
 import { AmiriFont } from "../fonts/AmiriFont";
@@ -37,6 +38,7 @@ const MissionOrder = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const { language, t } = useLanguage();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // تعريف الـ Schema للتحقق من صحة البيانات
   const formSchema = z.object({
@@ -76,16 +78,18 @@ const MissionOrder = () => {
     },
   });
 
+  useEffect(() => {
+    if (user && user.name) {
+      form.setValue('monsieurMadame', user.name);
+    }
+  }, [user]);
+
   // دالة للإرسال
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsGenerating(true);
     try {
       // Step 1: Send data to the backend
-      const response = await axios.post('http://localhost:8000/api/mission-orders', values, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await axios.post('http://localhost:8000/api/mission-orders', { ...values, type: 'missionOrder' }, { withCredentials: true });
       console.log('Backend response:', response.data);
 
       // Step 2: Generate PDF
@@ -261,7 +265,10 @@ doc.text(format(data.endDate, "yyyy-MM-dd"), col1X + 45, startY + rowHeight * 5.
                 <h2 className="text-xl md:text-2xl font-bold mb-2 md:mb-3 text-slate-800">تم الإرسال بنجاح</h2>
                 <p className="text-slate-600 leading-relaxed mb-4 md:mb-6 text-sm md:text-base">تم إرسال طلب أمر المهمة بنجاح وسيتم معالجته قريباً</p>
                 <Button 
-                  onClick={() => setIsSubmitted(false)}
+                  onClick={() => {
+                    setIsSubmitted(false);
+                    form.reset();
+                  }}
                   className="border-blue-500 text-blue-600 hover:bg-blue-50 px-6 md:px-8 py-2 md:py-3 rounded-lg text-sm md:text-base"
                 >
                   إرسال طلب جديد

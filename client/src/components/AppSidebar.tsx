@@ -13,6 +13,7 @@ import {
   Menu,
   CreditCard,
   DollarSign,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -20,11 +21,15 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/AuthContext";
 
-export const AppSidebar = () => {
+interface AppSidebarProps {
+  isMobileOpen?: boolean;
+  setIsMobileOpen?: (open: boolean) => void;
+}
+
+export const AppSidebar = ({ isMobileOpen, setIsMobileOpen }: AppSidebarProps) => {
   const [collapsed, setCollapsed] = useState(true);
   const { t, language } = useLanguage();
   const isMobile = useIsMobile();
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   
@@ -36,8 +41,11 @@ console.log(user);
     { icon: DollarSign, name: 'annualIncome', path: "/annual-income" },
     { icon: ClipboardCheck, name: 'missionOrder', path: "/mission-order" },
     { icon: Calendar, name: 'vacationRequest', path: "/vacation-request" },
-    { icon: Settings, name: 'settings', path: "/settings" },
   ];
+
+  const adminMenuItem = { icon: ShieldCheck, name: 'adminDashboard', path: '/admin/dashboard' };
+
+  const finalMenuItems = user?.is_admin ? [...baseMenuItems, adminMenuItem] : baseMenuItems;
 
   const handleSignOut = () => {
     logout();
@@ -57,7 +65,7 @@ console.log(user);
     <Button
       variant="ghost"
       size="icon"
-      onClick={() => setIsMobileOpen(!isMobileOpen)}  // Toggle mobile sidebar visibility
+      onClick={() => setIsMobileOpen && setIsMobileOpen(!isMobileOpen)}
       className={cn(
         "fixed top-4 z-40 hover:bg-[#E8F5E9] text-[#2E7D32]",
         language === 'ar' ? 'right-4' : 'left-4'
@@ -102,7 +110,7 @@ console.log(user);
             size='icon'
             onClick={() => {
               if (isMobile) {
-                setIsMobileOpen(false);
+                setIsMobileOpen && setIsMobileOpen(false);
               } else {
                 setCollapsed(!collapsed);
               }
@@ -114,11 +122,11 @@ console.log(user);
 
         {/* Navigation */}
         <div className='flex-1 py-4 flex flex-col gap-2'>
-          {baseMenuItems.map((item) => (
+          {finalMenuItems.map((item) => (
             <Link
               to={item.path}
               key={item.path}
-              onClick={() => isMobile && setIsMobileOpen(false)} // Close mobile sidebar when clicking on a menu item
+              onClick={() => isMobile && setIsMobileOpen && setIsMobileOpen(false)} // Close mobile sidebar when clicking on a menu item
             >
               <Button
                 variant='ghost'
@@ -143,6 +151,30 @@ console.log(user);
               </Button>
             </Link>
           ))}
+          <Link to="/settings">
+            <Button
+              variant="ghost"
+              className={cn(
+                "flex justify-start items-center gap-3 w-full rounded-none px-4 h-12",
+                "hover:bg-[#E8F5E9] hover:text-[#2E7D32]"
+              )}
+            >
+              <Settings size={20} />
+              {!collapsed && (
+                <span
+                  className="block max-w-[170px] overflow-hidden whitespace-nowrap relative group"
+                  style={{ position: 'relative' }}
+                >
+                  <span
+                    className="inline-block truncate group-hover:animate-marquee"
+                    style={{ minWidth: '100%' }}
+                  >
+                    {t("settings")}
+                  </span>
+                </span>
+              )}
+            </Button>
+          </Link>
         </div>
 
         {/* Footer */}
@@ -179,7 +211,7 @@ console.log(user);
       {isMobile && isMobileOpen && (
         <div
           className='fixed inset-0 bg-black/20 z-30'
-          onClick={() => setIsMobileOpen(false)}
+          onClick={() => setIsMobileOpen && setIsMobileOpen(false)}
         />
       )}
     </>

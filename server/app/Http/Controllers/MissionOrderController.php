@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\MissionOrder;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class MissionOrderController extends Controller
 {
@@ -27,7 +28,26 @@ class MissionOrderController extends Controller
                 'additionalInfo' => 'nullable|string',
             ]);
 
+            $filePath = null;
+            if ($request->hasFile('pdf')) {
+                $file = $request->file('pdf');
+                $fileName = 'requests/' . uniqid('mission_') . '.' . $file->getClientOriginalExtension();
+                $file->storeAs('public/requests', basename($fileName));
+                $filePath = 'requests/' . basename($fileName);
+            } elseif ($request->filled('pdf_base64')) {
+                $pdfData = base64_decode($request->input('pdf_base64'));
+                $fileName = 'requests/' . uniqid('mission_') . '.pdf';
+                \Storage::disk('public')->put($fileName, $pdfData);
+                $filePath = $fileName;
+            }
+
+            $type = $request->input('type');
+            if (!$type || !in_array($type, ['missionOrder'])) {
+                $type = 'missionOrder';
+            }
+
             $missionOrder = MissionOrder::create([
+                'user_id' => Auth::id(),
                 'monsieur_madame' => $validatedData['monsieurMadame'],
                 'matricule' => $validatedData['matricule'],
                 'destination' => $validatedData['destination'],
@@ -39,6 +59,9 @@ class MissionOrderController extends Controller
                 'start_time' => $validatedData['startTime'] ?? null,
                 'end_time' => $validatedData['endTime'] ?? null,
                 'additional_info' => $validatedData['additionalInfo'] ?? null,
+                'type' => $type,
+                'full_name' => $validatedData['monsieurMadame'],
+                'file_path' => $filePath,
             ]);
 
             Log::info('Mission order stored successfully', ['id' => $missionOrder->id]);
@@ -63,5 +86,17 @@ class MissionOrderController extends Controller
     {
         $count = \App\Models\MissionOrder::count();
         return response()->json(['count' => $count]);
+    }
+
+    public function userCount()
+    {
+        $count = MissionOrder::where('user_id', Auth::id())->count();
+        return response()->json(['count' => $count]);
+    }
+
+    public function userOrders()
+    {
+        $orders = MissionOrder::where('user_id', Auth::id())->orderBy('created_at', 'desc')->get();
+        return response()->json($orders);
     }
 }

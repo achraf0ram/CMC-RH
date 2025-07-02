@@ -17,5 +17,6 @@ class WorkCertificate extends Model
         'function',
         'purpose',
         'additional_info',
+        'user_id',
     ];
 } 

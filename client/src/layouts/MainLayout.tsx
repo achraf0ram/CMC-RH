@@ -4,14 +4,19 @@ import { Outlet } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import UrgentChatButton from '@/components/UrgentChatButton';
+import { useAuth } from '@/contexts/AuthContext';
+import { useState } from 'react';
 
 export const MainLayout = () => {
   const { language } = useLanguage();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  const [isSidebarMobileOpen, setIsSidebarMobileOpen] = useState(false);
   
   return (
     <div className="min-h-screen flex relative cmc-page-background">
-      <AppSidebar />
+      <AppSidebar isMobileOpen={isSidebarMobileOpen} setIsMobileOpen={setIsSidebarMobileOpen} />
       
       <div className={cn(
         "flex-1 flex flex-col",
@@ -24,6 +29,7 @@ export const MainLayout = () => {
           <Outlet />
         </main>
       </div>
+      {!user?.is_admin && <UrgentChatButton hide={isMobile && isSidebarMobileOpen} />}
     </div>
   );
 };

@@ -19,6 +19,8 @@ import { ResetPassword } from "./components/auth/ResetPassword";
 import { ForgotPassword } from "./components/auth/ForgotPassword";
 import SalaryDomiciliation from "./pages/SalaryDomiciliation";
 import AnnualIncome from "./pages/AnnualIncome";
+import AdminDashboard from "./pages/AdminDashboard";
+import FileViewer from "./pages/FileViewer";
 
 
 const queryClient = new QueryClient();
@@ -39,16 +41,33 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Admin route component
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center">Chargement...</div>;
+  }
+
+  if (!user?.is_admin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 // Public route component (accessible only when not logged in)
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return <div className="flex h-screen items-center justify-center">Chargement...</div>;
   }
 
   if (isAuthenticated) {
-    console.log("User is authenticated");
+    if (user?.is_admin) {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
     return <Navigate to="/" replace />;
   }
 
@@ -139,6 +158,22 @@ const App = () => (
                   element={<AnnualIncome />}
                 />
               </Route>
+
+              {/* Admin Route */}
+              <Route
+                path='/admin'
+                element={
+                  <AdminRoute>
+                    <MainLayout />
+                  </AdminRoute>
+                }
+              >
+                <Route path="dashboard" element={<AdminDashboard />} />
+              </Route>
+              
+              {/* File Viewer Route */}
+              <Route path='/file-viewer' element={<FileViewer />} />
+              
               <Route
                 path='*'
                 element={<NotFound />}

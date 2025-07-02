@@ -59,6 +59,7 @@ export const ForgotPassword = () => {
         className="flex min-h-screen items-center justify-center bg-cover bg-center p-4"
         style={{ backgroundImage: "url('/lovable-uploads/CMC CASA -.png')" }}
       >
+        <div className="absolute inset-0 bg-black/40" />
         <div className="absolute inset-0 bg-slate-100/80 backdrop-blur-md" />
         <div className="relative z-10 w-full max-w-md">
            <div className="overflow-hidden rounded-2xl bg-white shadow-2xl text-center p-8">
@@ -85,23 +86,19 @@ export const ForgotPassword = () => {
       className="flex min-h-screen items-center justify-center bg-cover bg-center p-4"
       style={{ backgroundImage: "url('/lovable-uploads/CMC CASA -.png')" }}
     >
-      <div className="absolute inset-0 bg-slate-100/80 backdrop-blur-md" />
+      <div className="absolute inset-0 bg-white/30" />
       <div className="relative z-10 w-full max-w-md">
-        <div className="mb-8 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-green-500 rounded-full mb-4 shadow-lg">
-            <Mail className="w-8 h-8 text-white" />
+        <div className="overflow-hidden rounded-3xl bg-white shadow-3xl animate-fade-in">
+          <div className="bg-gradient-to-r from-blue-500 to-green-400 p-6 text-center rounded-t-3xl">
+            <div className="flex justify-center mb-1">
+              <div className="w-16 h-16 rounded-full bg-white/90 border-2 border-blue-400 shadow-xl flex items-center justify-center transition-transform duration-200 hover:scale-105 hover:shadow-2xl">
+                <img src="/favicon.ico" alt="Logo" className="w-12 h-12 object-cover rounded-full" />
+              </div>
+            </div>
+            <h2 className="text-3xl font-bold text-white tracking-wider mb-1">CMC</h2>
+            <p className="text-white/80 text-sm">أدخل بريدك الإلكتروني لاستعادة كلمة المرور</p>
           </div>
-          <h1 className="text-3xl font-bold text-slate-800">Mot de passe oublié ?</h1>
-          <p className="mt-2 text-slate-500">
-            Entrez votre e-mail pour recevoir un lien de réinitialisation
-          </p>
-        </div>
-
-        <div className="overflow-hidden rounded-2xl bg-white shadow-2xl">
-          <div className="bg-gradient-to-r from-blue-600 to-green-500 p-4 text-center">
-            <h2 className="text-2xl font-bold text-white tracking-wider">CMC</h2>
-          </div>
-          <div className="p-7">
+          <div className="p-8">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
@@ -127,7 +124,7 @@ export const ForgotPassword = () => {
                 )}
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white hover:opacity-90"
+                  className="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white hover:shadow-md active:scale-95 transition-all text-lg py-3"
                   disabled={isLoading}
                 >
                   {isLoading ? "Envoi en cours..." : "Envoyer le lien de réinitialisation"}

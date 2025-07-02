@@ -1,11 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { BarChart3, Calendar, CheckCircle } from "lucide-react";
+import { BarChart3, Calendar, CheckCircle, FileText, Banknote } from "lucide-react";
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
+import axiosInstance from '@/components/Api/axios';
+import { useToast } from '@/components/ui/use-toast';
 
 export const Dashboard = () => {
   const { t } = useLanguage();
+  const { toast } = useToast();
   const [pendingCount, setPendingCount] = useState(0);
   const [approvedCount, setApprovedCount] = useState(0);
   const [vacationDays, setVacationDays] = useState(0);
@@ -15,6 +19,7 @@ export const Dashboard = () => {
   const [vacationRequests, setVacationRequests] = useState([]);
   const [missionOrders, setMissionOrders] = useState([]);
   const [workCertificates, setWorkCertificates] = useState([]);
+  const [shownReplies, setShownReplies] = useState<string[]>([]);
 
   useEffect(() => {
     axios.get("http://localhost:8000/api/vacation-requests/pending/count")
@@ -26,39 +31,60 @@ export const Dashboard = () => {
     axios.get("http://localhost:8000/api/vacation-requests/vacation-days/sum")
       .then(res => setVacationDays(res.data.days))
       .catch(() => setVacationDays(0));
-    axios.get('http://localhost:8000/api/vacation-requests/count')
-      .then(res => setVacationCount(res.data.count));
-    axios.get('http://localhost:8000/api/mission-orders/count')
-      .then(res => setMissionCount(res.data.count));
-    axios.get('http://localhost:8000/api/work-certificates/count')
-      .then(res => setCertificateCount(res.data.count));
+    axios.get("http://localhost:8000/api/vacation-requests/user/count", { withCredentials: true })
+      .then(res => setVacationCount(res.data.count))
+      .catch(() => setVacationCount(0));
+    axios.get("http://localhost:8000/api/mission-orders/user/count", { withCredentials: true })
+      .then(res => setMissionCount(res.data.count))
+      .catch(() => setMissionCount(0));
+    axios.get("http://localhost:8000/api/work-certificates/user/count", { withCredentials: true })
+      .then(res => setCertificateCount(res.data.count))
+      .catch(() => setCertificateCount(0));
     axios.get('/api/vacation-requests/user', { withCredentials: true })
       .then(res => setVacationRequests(res.data));
     axios.get('/api/mission-orders/user', { withCredentials: true })
       .then(res => setMissionOrders(res.data));
     axios.get('/api/work-certificates/user', { withCredentials: true })
       .then(res => setWorkCertificates(res.data));
-  }, []);
+
+    // جلب الرسائل العاجلة الخاصة بالمستخدم
+    axiosInstance.get('/urgent-messages/me')
+      .then(res => {
+        const messages = res.data || [];
+        // إظهار toast لأول رسالة بها رد من الأدمن لم تُعرض بعد
+        const firstNewReply = messages.find(
+          (msg: any) => msg.is_replied && msg.admin_reply && !shownReplies.includes(msg.id.toString())
+        );
+        if (firstNewReply) {
+          toast({
+            title: t('urgentMessageAdminReplyTitle') || 'رد الإدارة على رسالتك العاجلة',
+            description: firstNewReply.admin_reply,
+            duration: 10000,
+          });
+          setShownReplies(prev => [...prev, firstNewReply.id.toString()]);
+        }
+      });
+  }, [toast, t, shownReplies]);
 
   const stats = [   
     {
-      title: "كل طلبات الإجازة",
+      title: t('allVacationRequests'),
       value: vacationCount,
-      description: t('awaitingApproval'),
+      description: t('totalRequests'),
       icon: Calendar,
       color: 'from-cmc-blue to-cmc-blue-dark'
     },
     {
-      title: "كل أوامر المهمة",
+      title: t('allMissionOrders'),
       value: missionCount,
-      description: t('thisMonth'),
+      description: t('totalOrders'),
       icon: CheckCircle,
       color: 'from-cmc-green to-emerald-600'
     },
     {
-      title: "كل شهادات العمل",
+      title: t('allWorkCertificates'),
       value: certificateCount,
-      description: t('remaining'),
+      description: t('totalCertificates'),
       icon: BarChart3,
       color: 'from-cmc-blue to-cmc-green'
     },
@@ -73,7 +99,7 @@ export const Dashboard = () => {
             <BarChart3 className="w-6 h-6 md:w-8 md:h-8 text-cmc-blue" />
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-2">{t('dashboard')}</h1>
-          <p className="text-slate-600 text-sm md:text-base">لوحة التحكم الرئيسية</p>
+          <p className="text-slate-600 text-sm md:text-base">{t('dashboardMainDesc')}</p>
         </div>
         
         {/* Stats Cards */}
@@ -102,26 +128,36 @@ export const Dashboard = () => {
         <Card className="cmc-card">
           <CardHeader className="cmc-gradient text-white rounded-t-lg p-4 md:p-6">
             <CardTitle className="text-lg md:text-xl font-semibold text-center">
-              الإجراءات السريعة
+              {t('quickActions')}
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 md:p-8">
             <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-              <div className="text-center p-4 md:p-6 bg-gradient-to-br from-cmc-blue-light/50 to-cmc-blue-light/30 rounded-lg border border-cmc-blue/20 hover:shadow-lg transition-all duration-200 cursor-pointer">
+              <Link to="/vacation-request" className="text-center p-4 md:p-6 bg-gradient-to-br from-cmc-blue-light/50 to-cmc-blue-light/30 rounded-lg border border-cmc-blue/20 hover:shadow-lg transition-all duration-200 cursor-pointer">
                 <Calendar className="w-10 h-10 md:w-12 md:h-12 text-cmc-blue mx-auto mb-3 md:mb-4" />
-                <h3 className="font-semibold text-slate-800 mb-2 text-sm md:text-base">طلب إجازة جديد</h3>
-                <p className="text-xs md:text-sm text-slate-600">تقديم طلب إجازة سنوية أو مرضية</p>
-              </div>
-              <div className="text-center p-4 md:p-6 bg-gradient-to-br from-cmc-green-light/50 to-cmc-green-light/30 rounded-lg border border-cmc-green/20 hover:shadow-lg transition-all duration-200 cursor-pointer">
+                <h3 className="font-semibold text-slate-800 mb-2 text-sm md:text-base">{t('newVacationRequest')}</h3>
+                <p className="text-xs md:text-sm text-slate-600">{t('newVacationRequestDesc')}</p>
+              </Link>
+              <Link to="/work-certificate" className="text-center p-4 md:p-6 bg-gradient-to-br from-cmc-green-light/50 to-cmc-green-light/30 rounded-lg border border-cmc-green/20 hover:shadow-lg transition-all duration-200 cursor-pointer">
                 <CheckCircle className="w-10 h-10 md:w-12 md:h-12 text-cmc-green mx-auto mb-3 md:mb-4" />
-                <h3 className="font-semibold text-slate-800 mb-2 text-sm md:text-base">شهادة عمل</h3>
-                <p className="text-xs md:text-sm text-slate-600">طلب شهادة عمل أو راتب</p>
-              </div>
-              <div className="text-center p-4 md:p-6 bg-gradient-to-br from-emerald-100/50 to-emerald-50/30 rounded-lg border border-emerald-200/50 hover:shadow-lg transition-all duration-200 cursor-pointer">
+                <h3 className="font-semibold text-slate-800 mb-2 text-sm md:text-base">{t('workCertificateAction')}</h3>
+                <p className="text-xs md:text-sm text-slate-600">{t('workCertificateActionDesc')}</p>
+              </Link>
+              <Link to="/mission-order" className="text-center p-4 md:p-6 bg-gradient-to-br from-emerald-100/50 to-emerald-50/30 rounded-lg border border-emerald-200/50 hover:shadow-lg transition-all duration-200 cursor-pointer">
                 <BarChart3 className="w-10 h-10 md:w-12 md:h-12 text-emerald-600 mx-auto mb-3 md:mb-4" />
-                <h3 className="font-semibold text-slate-800 mb-2 text-sm md:text-base">أمر مهمة</h3>
-                <p className="text-xs md:text-sm text-slate-600">تقديم طلب أمر مهمة</p>
-              </div>
+                <h3 className="font-semibold text-slate-800 mb-2 text-sm md:text-base">{t('missionOrderAction')}</h3>
+                <p className="text-xs md:text-sm text-slate-600">{t('missionOrderActionDesc')}</p>
+              </Link>
+              <Link to="/salary-domiciliation" className="text-center p-4 md:p-6 bg-gradient-to-br from-indigo-100/50 to-indigo-50/30 rounded-lg border border-indigo-200/50 hover:shadow-lg transition-all duration-200 cursor-pointer">
+                <Banknote className="w-10 h-10 md:w-12 md:h-12 text-indigo-600 mx-auto mb-3 md:mb-4" />
+                <h3 className="font-semibold text-slate-800 mb-2 text-sm md:text-base">{t('salaryDomiciliation')}</h3>
+                <p className="text-xs md:text-sm text-slate-600">{t('salaryDomiciliationDesc')}</p>
+              </Link>
+              <Link to="/annual-income" className="text-center p-4 md:p-6 bg-gradient-to-br from-rose-100/50 to-rose-50/30 rounded-lg border border-rose-200/50 hover:shadow-lg transition-all duration-200 cursor-pointer">
+                <FileText className="w-10 h-10 md:w-12 md:h-12 text-rose-600 mx-auto mb-3 md:mb-4" />
+                <h3 className="font-semibold text-slate-800 mb-2 text-sm md:text-base">{t('annualIncome')}</h3>
+                <p className="text-xs md:text-sm text-slate-600">{t('annualIncomeDesc')}</p>
+              </Link>
             </div>
           </CardContent>
         </Card>

@@ -35,6 +35,13 @@ class VacationRequest extends Model
         'interim',
         'arabic_interim',
         'leave_morocco',
-        'signature_path',
+        'signature',
+        'user_id',
+    ];
+
+    protected $casts = [
+        'start_date' => 'date',
+        'end_date' => 'date',
+        'leave_morocco' => 'boolean',
     ];
 }

@@ -59,23 +59,14 @@ export const SignUp = () => {
       className="flex min-h-screen items-center justify-center bg-cover bg-center p-4"
       style={{ backgroundImage: "url('/lovable-uploads/CMC CASA -.png')" }}
     >
-      <div className="absolute inset-0 bg-slate-100/80 backdrop-blur-md" />
+      <div className="absolute inset-0 bg-white/30" />
       <div className="relative z-10 w-full max-w-md">
-        <div className="mb-6 text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-r from-blue-600 to-green-500 rounded-full mb-4 shadow-lg">
-            <UserPlus className="w-7 h-7 text-white" />
+        <div className="overflow-hidden rounded-3xl bg-white shadow-3xl animate-fade-in">
+          <div className="bg-gradient-to-r from-blue-500 to-green-400 p-6 text-center rounded-t-3xl">
+            <h2 className="text-3xl font-bold text-white tracking-wider mb-1">CMC</h2>
+            <p className="text-white/80 text-sm">يرجى إدخال معلوماتك لإنشاء حساب جديد</p>
           </div>
-          <h1 className="text-3xl font-bold text-slate-800">Créer un compte</h1>
-          <p className="mt-2 text-slate-500">
-            Entrez vos informations pour créer un nouveau compte
-          </p>
-        </div>
-
-        <div className="overflow-hidden rounded-2xl bg-white shadow-2xl">
-          <div className="bg-gradient-to-r from-blue-600 to-green-500 p-4 text-center">
-            <h2 className="text-2xl font-bold text-white tracking-wider">CMC</h2>
-          </div>
-          <div className="p-6">
+          <div className="p-8">
             <form onSubmit={handleSubmit} className="space-y-2">
               <div className="space-y-1">
                 <Label htmlFor="name" className="text-left block">Nom et prénom</Label>
@@ -97,10 +88,9 @@ export const SignUp = () => {
                 <Label htmlFor="password_confirmation" className="text-left block">Confirmer le mot de passe</Label>
                 <Input id="password_confirmation" type="password" placeholder="Confirmez votre mot de passe" value={password_confirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} required dir="ltr" />
               </div>
-
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white hover:opacity-90"
+                className="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white hover:shadow-md active:scale-95 transition-all text-lg py-3"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -112,7 +102,6 @@ export const SignUp = () => {
                   "Créer un compte"
                 )}
               </Button>
-
               <div className="mt-3 text-center text-sm">
                 Vous avez déjà un compte ?{" "}
                 <Button

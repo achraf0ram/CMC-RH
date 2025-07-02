@@ -84,7 +84,7 @@ export const ResetPassword = () => {
   if (!token || !email) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-cover bg-center p-4" style={{ backgroundImage: "url('/lovable-uploads/CMC CASA -.png')" }}>
-        <div className="absolute inset-0 bg-slate-100/80 backdrop-blur-md" />
+        <div className="absolute inset-0 bg-white/20" />
         <div className="relative z-10 w-full max-w-md text-center bg-white rounded-2xl shadow-2xl p-8">
           <h2 className="text-2xl font-bold text-red-600 mb-4">Lien invalide</h2>
           <p className="mb-6">Le lien de réinitialisation est invalide ou incomplet.</p>
@@ -99,7 +99,7 @@ export const ResetPassword = () => {
   if (success) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-cover bg-center p-4" style={{ backgroundImage: "url('/lovable-uploads/CMC CASA -.png')" }}>
-        <div className="absolute inset-0 bg-slate-100/80 backdrop-blur-md" />
+        <div className="absolute inset-0 bg-white/20" />
         <div className="relative z-10 w-full max-w-md text-center bg-white rounded-2xl shadow-2xl p-8">
           <h2 className="text-2xl font-bold text-green-600 mb-4">Mot de passe mis à jour !</h2>
           <p className="mb-6">Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.</p>
@@ -116,8 +116,13 @@ export const ResetPassword = () => {
       className="flex min-h-screen items-center justify-center bg-cover bg-center p-4"
       style={{ backgroundImage: "url('/lovable-uploads/CMC CASA -.png')" }}
     >
-      <div className="absolute inset-0 bg-slate-100/80 backdrop-blur-md" />
+      <div className="absolute inset-0 bg-white/30" />
       <div className="relative z-10 w-full max-w-md">
+        <div className="flex justify-center mb-1">
+          <div className="w-16 h-16 rounded-full bg-white/90 border-2 border-blue-400 shadow-xl flex items-center justify-center transition-transform duration-200 hover:scale-105 hover:shadow-2xl">
+            <img src="/favicon.ico" alt="Logo" className="w-12 h-12 object-cover rounded-full" />
+          </div>
+        </div>
         <div className="mb-8 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-green-500 rounded-full mb-4 shadow-lg">
             <Lock className="w-8 h-8 text-white" />
@@ -128,7 +133,12 @@ export const ResetPassword = () => {
           </p>
         </div>
         <div className="overflow-hidden rounded-2xl bg-white shadow-2xl">
-          <div className="bg-gradient-to-r from-blue-600 to-green-500 p-4 text-center">
+          <div className="bg-gradient-to-r from-blue-600 to-green-500 p-4 text-center rounded-t-2xl">
+            <div className="flex justify-center mb-2">
+              <div className="w-12 h-12 rounded-full bg-white shadow flex items-center justify-center">
+                <img src="/favicon.ico" alt="Logo" className="w-8 h-8 object-contain" />
+              </div>
+            </div>
             <h2 className="text-2xl font-bold text-white tracking-wider">CMC</h2>
           </div>
           <div className="p-7">

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -36,6 +36,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { AmiriFont } from "../fonts/AmiriFont";
 import { AmiriBoldFont } from "../fonts/AmiriBoldFont";
 import jsPDF from "jspdf";
+import axios from "axios";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from '@/contexts/AuthContext';
 
 // Import Arabic reshaping libraries
 import * as reshaper from "arabic-persian-reshaper";
@@ -147,7 +150,9 @@ const VacationRequest = () => {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [showCustomLeaveType, setShowCustomLeaveType] = useState(false);
   const { language, t } = useLanguage();
+  const { toast } = useToast();
   const logoPath = "/lovable-uploads/d44e75ac-eac5-4ed3-bf43-21a71c6a089d.png";
+  const { user } = useAuth();
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -181,6 +186,12 @@ const VacationRequest = () => {
     },
   });
 
+  useEffect(() => {
+    if (user && user.name) {
+      form.setValue('fullName', user.name);
+    }
+  }, [user]);
+
   const handleSignatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -195,14 +206,73 @@ const VacationRequest = () => {
   };
 
   const onSubmit = async (values: FormData) => {
+    setIsGeneratingPDF(true); // Start loading state
+
+    try {
+      // 1. توليد PDF وحفظه في Blob
+      const pdfBlob = await generatePDFBlob(values);
+      // 2. إنشاء ملف PDF من Blob
+      const pdfFile = new File([pdfBlob], `demande_conge_${values.fullName || 'user'}.pdf`, { type: 'application/pdf' });
+      // 3. تجهيز FormData
+      const formData = new FormData();
+      formData.append('fullName', String(values.fullName || ''));
+      formData.append('arabicFullName', String(values.arabicFullName || ''));
+      formData.append('matricule', String(values.matricule || ''));
+      formData.append('echelle', String(values.echelle || ''));
+      formData.append('echelon', String(values.echelon || ''));
+      formData.append('grade', String(values.grade || ''));
+      formData.append('fonction', String(values.fonction || ''));
+      formData.append('arabicFonction', String(values.arabicFonction || ''));
+      formData.append('direction', String(values.direction || ''));
+      formData.append('arabicDirection', String(values.arabicDirection || ''));
+      formData.append('address', String(values.address || ''));
+      formData.append('arabicAddress', String(values.arabicAddress || ''));
+      formData.append('phone', String(values.phone || ''));
+      formData.append('leaveType', String(values.leaveType || ''));
+      formData.append('customLeaveType', String(values.customLeaveType || ''));
+      formData.append('arabicCustomLeaveType', String(values.arabicCustomLeaveType || ''));
+      formData.append('duration', String(values.duration || ''));
+      formData.append('arabicDuration', String(values.arabicDuration || ''));
+      formData.append('startDate', values.startDate ? new Date(values.startDate).toISOString().slice(0, 10) : '');
+      formData.append('endDate', values.endDate ? new Date(values.endDate).toISOString().slice(0, 10) : '');
+      formData.append('with', String(values.with || ''));
+      formData.append('arabicWith', String(values.arabicWith || ''));
+      formData.append('interim', String(values.interim || ''));
+      formData.append('arabicInterim', String(values.arabicInterim || ''));
+      formData.append('leaveMorocco', values.leaveMorocco ? '1' : '0');
+      formData.append('signature', String(values.signature || ''));
+      formData.append('type', 'vacationRequest');
+      formData.append('pdf', pdfFile);
+      // 4. إرسال الطلب مع الملف
+      await axios.post("http://localhost:8000/api/vacation-requests", formData, {
+        withCredentials: true,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      // 5. تحميل PDF محلياً للمستخدم
+      savePDFLocally(pdfBlob, pdfFile.name);
     setIsSubmitted(true);
-    setIsGeneratingPDF(true);
-    await generatePDF(values);
-    setIsGeneratingPDF(false);
+        toast({
+          title: language === 'ar' ? "تم الإرسال بنجاح" : "Envoyé avec succès",
+          description: language === 'ar' ? "تم حفظ طلب الإجازة و تحميله بنجاح" : "Votre demande de congé a été enregistrée et téléchargée avec succès.",
+          variant: "default",
+          className: "bg-green-50 border-green-200",
+        });
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        console.log('Validation error:', error.response.data);
+        toast({
+          title: "Validation Error",
+          description: JSON.stringify(error.response.data.errors),
+            variant: "destructive",
+        });
+      }
+      setIsGeneratingPDF(false);
+    }
   };
 
-  const generatePDF = async (data: FormData) => {
-    return new Promise<void>((resolve) => {
+  // دالة توليد PDF وإرجاع Blob
+  const generatePDFBlob = async (data: FormData): Promise<Blob> => {
+    return new Promise((resolve) => {
       try {
         const doc = new jsPDF();
         
@@ -222,21 +292,39 @@ const VacationRequest = () => {
           img.onload = () => {
             console.log("Logo image loaded successfully.");
             doc.addImage(img, "PNG", 10, 4, 66, 20);
-            addContent(doc, data, resolve);
+            addContent(doc, data, () => {
+              resolve(doc.output('blob'));
+            });
           }
-          img.onerror = (err) => {
-            console.error("Error loading logo image:", err);
-            addContent(doc, data, resolve);
+          img.onerror = () => {
+            addContent(doc, data, () => {
+              resolve(doc.output('blob'));
+            });
           };
         } else {
           console.log("No logo path specified. Adding content directly.");
-          addContent(doc, data, resolve);
+          addContent(doc, data, () => {
+            resolve(doc.output('blob'));
+          });
         }
       } catch (error) {
-        console.error("Error generating PDF:", error);
-        throw error;
+        resolve(new Blob());
       }
     });
+  };
+
+  // دالة تحميل PDF محلياً
+  const savePDFLocally = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }, 100);
   };
 
   // Helper function to add content after logo loading
@@ -1322,10 +1410,10 @@ for (let i = 0; i < arabicNotes.length; i++) {
               <div className="text-center py-12">
                 <CheckCircle className="mx-auto h-16 w-16 text-green-500 mb-4" />
                 <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                  {language === 'ar' ? 'تم إنشاء الطلب بنجاح!' : 'Demande générée avec succès!'}
+                  {t('successTitle')}
                 </h3>
                 <p className="text-gray-600 mb-6">
-                  {language === 'ar' ? 'تم تحميل ملف PDF لطلب الإجازة' : 'Le fichier PDF de votre demande a été téléchargé'}
+                  {t('successDescVacation')}
                 </p>
                 <Button 
                   onClick={() => {
@@ -1336,7 +1424,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
                   variant="outline"
                   className="border-blue-500 text-blue-600 hover:bg-blue-50"
                 >
-                  {language === 'ar' ? 'طلب جديد' : 'Nouvelle demande'}
+                  {t('newRequestBtn')}
                 </Button>
               </div>
             )}

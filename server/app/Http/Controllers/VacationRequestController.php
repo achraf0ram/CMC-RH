@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class VacationRequestController extends Controller
 {
@@ -67,7 +68,25 @@ class VacationRequestController extends Controller
                 }
             }
 
+            $filePath = null;
+            if ($request->hasFile('pdf')) {
+                $file = $request->file('pdf');
+                $fileName = 'requests/' . uniqid('vacation_') . '.' . $file->getClientOriginalExtension();
+                $file->storeAs('public/requests', basename($fileName));
+                $filePath = 'requests/' . basename($fileName);
+            } elseif ($request->filled('pdf_base64')) {
+                $pdfData = base64_decode($request->input('pdf_base64'));
+                $fileName = 'requests/' . uniqid('vacation_') . '.pdf';
+                \Storage::disk('public')->put($fileName, $pdfData);
+                $filePath = $fileName;
+            }
+
+            $type = $request->input('type');
+            if (!$type || !in_array($type, ['vacationRequest'])) {
+                $type = 'vacationRequest';
+            }
             $vacationRequest = VacationRequest::create([
+                'user_id' => Auth::id(),
                 'full_name' => $validatedData['fullName'],
                 'arabic_full_name' => $validatedData['arabicFullName'] ?? null,
                 'matricule' => $validatedData['matricule'],
@@ -94,6 +113,8 @@ class VacationRequestController extends Controller
                 'arabic_interim' => $validatedData['arabicInterim'] ?? null,
                 'leave_morocco' => $validatedData['leaveMorocco'] ?? false,
                 'signature_path' => $signaturePath,
+                'file_path' => $filePath,
+                'type' => $type,
             ]);
 
             Log::info('Vacation request stored successfully', ['id' => $vacationRequest->id]);
@@ -136,5 +157,17 @@ class VacationRequestController extends Controller
     {
         $count = \App\Models\VacationRequest::count();
         return response()->json(['count' => $count]);
+    }
+
+    public function userCount()
+    {
+        $count = VacationRequest::where('user_id', Auth::id())->count();
+        return response()->json(['count' => $count]);
+    }
+
+    public function userRequests()
+    {
+        $requests = VacationRequest::where('user_id', Auth::id())->orderBy('created_at', 'desc')->get();
+        return response()->json($requests);
     }
 }

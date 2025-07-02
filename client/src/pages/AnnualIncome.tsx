@@ -1,67 +1,145 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import axios from 'axios';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useAuth } from '@/contexts/AuthContext';
+
+const formSchema = z.object({
+  fullName: z.string().min(3, { message: 'Please enter your full name.' }),
+  matricule: z.string().min(1, { message: 'Please enter your matricule.' }),
+  file: z.instanceof(File).refine(file => file.size > 0, 'File is required.'),
+});
 
 const AnnualIncome: React.FC = () => {
   const { language, t } = useLanguage();
-  const [file, setFile] = useState<File | null>(null);
+  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useAuth();
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const uploadedFile = e.target.files?.[0] || null;
-    setFile(uploadedFile);
-  };
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      fullName: '',
+      matricule: '',
+      file: new File([], ''),
+    },
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!file) return;
+  useEffect(() => {
+    if (user && user.name) {
+      form.setValue('fullName', user.name);
+    }
+  }, [user]);
+
+  const handleSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-    setTimeout(() => {
-      alert(t('requestSubmitted'));
+
+    const formData = new FormData();
+    formData.append('fullName', values.fullName);
+    formData.append('matricule', values.matricule);
+    formData.append('file', values.file);
+    formData.append('type', 'annualIncome');
+
+    try {
+      await axios.post('http://localhost:8000/api/annual-incomes', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      toast({
+        title: language === 'ar' ? 'تم الإرسال بنجاح' : 'Demande envoyée',
+        description: language === 'ar' ? 'تم إرسال طلبك بنجاح.' : 'Votre demande a été envoyée avec succès.',
+        variant: 'default',
+        className: 'bg-green-50 border-green-200',
+      });
+      form.reset();
+    } catch (error) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Erreur',
+        description: language === 'ar' ? 'حدث خطأ أثناء إرسال الطلب.' : "Une erreur s'est produite lors de l'envoi de la demande.",
+        variant: 'destructive',
+      });
+    } finally {
       setIsSubmitting(false);
-      setFile(null);
-    }, 1000);
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 p-4">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-6 md:mb-8">
           <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent mb-2">
             {t('annualIncome')}
           </h1>
-          <p className="text-gray-600 text-sm md:text-base">{language === 'ar' ? 'يرجى رفع صورة أو ملف PDF مكتوب لهذا الطلب.' : 'Veuillez télécharger une image ou un fichier PDF pour cette demande.'}</p>
+          <p className="text-gray-600 text-sm md:text-base">{language === 'ar' ? 'يرجى ملء النموذج ورفع المستند المطلوب.' : 'Veuillez remplir le formulaire et télécharger le document requis.'}</p>
         </div>
-        {/* Card */}
         <div className="shadow-xl border-0 bg-white/80 backdrop-blur-sm rounded-lg overflow-hidden">
-          {/* Header with gradient */}
           <div className="bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-t-lg py-4 px-6">
-            <h2 className="text-lg font-semibold text-center">{language === 'ar' ? 'تحميل المستند' : 'Téléchargement du document'}</h2>
+            <h2 className="text-lg font-semibold text-center">{language === 'ar' ? 'تفاصيل الطلب' : 'Détails de la demande'}</h2>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-4 p-6 md:p-8">
-            <div className="flex flex-col items-center gap-4">
-              <label className="block mb-1 font-medium text-slate-700">{language === 'ar' ? 'رفع صورة أو ملف PDF' : 'Télécharger une image ou un PDF'}</label>
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                onChange={handleFileUpload}
-                className="w-full max-w-xs border border-blue-300 focus:border-blue-500 focus:ring-blue-200 rounded px-3 py-2"
-                required
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 p-6 md:p-8">
+              <FormField
+                control={form.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{language === 'ar' ? 'الاسم الكامل' : 'Nom et Prénom'}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={language === 'ar' ? 'أدخل الاسم الكامل' : 'Entrez le nom et prénom'} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {file && (
-                <span className="text-green-600 text-sm mt-2">{file.name}</span>
-              )}
-            </div>
-            <div className="flex justify-center pt-4 md:pt-6">
-              <button
-                type="submit"
-                disabled={isSubmitting || !file}
-                className="w-full md:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
-              >
-                {isSubmitting ? t('submitting') : t('submit')}
-              </button>
-            </div>
-          </form>
+              <FormField
+                control={form.control}
+                name="matricule"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{language === 'ar' ? 'الرقم المالي' : 'Matricule'}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={language === 'ar' ? 'أدخل الرقم المالي' : 'Entrez le matricule'} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="file"
+                render={({ field: { onChange, value, ...rest } }) => (
+                  <FormItem>
+                    <FormLabel>{language === 'ar' ? 'رفع المستند' : 'Télécharger le document'}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => onChange(e.target.files?.[0])}
+                        {...rest}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-center pt-4">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full md:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-green-600 text-white font-medium rounded-lg"
+                >
+                  {isSubmitting ? (language === 'ar' ? 'جاري الإرسال...' : 'Envoi en cours...') : (language === 'ar' ? 'إرسال الطلب' : 'Envoyer la demande')}
+                </Button>
+              </div>
+            </form>
+          </Form>
         </div>
       </div>
     </div>

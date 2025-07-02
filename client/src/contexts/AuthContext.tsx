@@ -10,6 +10,7 @@ interface User {
   email_verified_at: string | null;
   created_at: string;
   updated_at: string;
+  is_admin: boolean;
 }
 
 // Define context type
@@ -17,7 +18,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<{success: boolean, isAdmin: boolean}>;
   register: (
     name: string,
     email: string,
@@ -58,42 +59,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const getCsrf = async () => {
     await api.get("/sanctum/csrf-cookie");
   };
+  
+  const fetchUser = async () => {
+    try {
+      const res = await api.get("api/user");
+      setUser(res.data);
+      return res.data;
+    } catch {
+      setUser(null);
+      return null;
+    }
+  };
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        await getCsrf();
-        const res = await api.get("api/user");
-        console.log("User data:", res.data);
-        setUser(res.data);
-      } catch {
-        setUser(null);
-      } finally {
-        setIsLoading(false);
-      }
+    const initAuth = async () => {
+      await getCsrf();
+      await fetchUser();
+      setIsLoading(false);
     };
-
-    fetchUser();
+    initAuth();
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<{success: boolean, isAdmin: boolean}> => {
     setError(null);
     setValidationErrors(null);
     try {
       await getCsrf();
-      const res = await api.post("/login", { email, password });
-      setUser(res.data.user || res.data); // Adjust to your Laravel response
-      return true;
+      await api.post("/login", { email, password });
+      const user = await fetchUser(); // Fetch user after login
+      return { success: true, isAdmin: !!user?.is_admin };
     } catch (err: any) {
       if (err.response?.status === 422) {
         const errors = err.response.data.errors;
         setValidationErrors(errors);
         setError("Validation failed");
-        return false;
+        return { success: false, isAdmin: false };
       }
       const errorMessage = err.response?.data?.message || "Login failed";
       setError(errorMessage);
-      return false;
+      return { success: false, isAdmin: false };
     }
   };
 
@@ -115,7 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         password_confirmation: passwordConfirmation,
         phone,
       });
-      setUser(res.data.user || res.data); // Adjust to your Laravel response
+      await fetchUser(); // Fetch user after registration
       return { success: true };
     } catch (err: any) {
       if (err.response?.status === 422) {
