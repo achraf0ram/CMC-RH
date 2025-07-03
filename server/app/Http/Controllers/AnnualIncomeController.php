@@ -28,6 +28,7 @@ class AnnualIncomeController extends Controller
             'matricule' => $request->matricule,
             'file_path' => $filePath,
             'type' => $type,
+            'status' => $request->input('status', 'pending'),
         ]);
 
         return response()->json(['message' => 'Request submitted successfully!', 'data' => $income], 201);

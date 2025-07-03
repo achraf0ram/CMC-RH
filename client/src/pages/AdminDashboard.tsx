@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -23,10 +23,12 @@ import AdminUrgentMessages from '@/components/admin/AdminUrgentMessages';
 import axiosInstance from '@/components/Api/axios';
 
 const AdminDashboard: React.FC = () => {
-  const { requests, users, stats, isLoading, error, refreshData } = useAdminData();
+  const { requests, users, stats, isLoading, error, refreshData, setRequests } = useAdminData();
   const [activeTab, setActiveTab] = useState('overview');
   const { t, language } = useLanguage();
   const [urgentCount, setUrgentCount] = useState<number>(0);
+  const [highlightedRequestId, setHighlightedRequestId] = useState<string|null>(null);
+  const requestsListRef = useRef<HTMLDivElement>(null);
 
   // جلب عدد الرسائل العاجلة
   const fetchUrgentCount = async () => {
@@ -191,7 +193,7 @@ const AdminDashboard: React.FC = () => {
     <div className="container mx-auto p-2 sm:p-4 lg:p-6 space-y-4 md:space-y-6 bg-gray-50 min-h-screen max-w-7xl">
       {/* Header */}
       <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm border">
-        <div className="flex flex-col md:flex-row items-center justify-between text-center md:text-right gap-4 md:gap-0">
+        <div className={`flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0 ${language === 'ar' ? 'text-center md:text-right' : 'text-center md:text-left'}`}>
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
               {t('adminDashboardTitle')}
@@ -254,7 +256,10 @@ const AdminDashboard: React.FC = () => {
 
       {/* التبويبات الرئيسية */}
       <Card className="shadow-sm">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={(tab) => {
+          setActiveTab(tab);
+          setHighlightedRequestId(null);
+        }}>
           <div className="border-b">
             <TabsList className="w-full h-auto md:h-12 bg-gray-50 p-1">
               <TabsTrigger 
@@ -322,28 +327,51 @@ const AdminDashboard: React.FC = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    {requests.length > 0 ? requests.slice(0, 6).map((request) => (
-                      <div key={request.id + request.type} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div>
-                          <p className="font-semibold text-sm">
-                            {request.full_name || 'مستخدم غير معروف'}
-                          </p>
-                          <p className="text-xs text-gray-600">
-                            {getRequestTypeName(request.type)}
-                          </p>
+                  <div className="space-y-3 max-h-72 overflow-y-auto" ref={requestsListRef}>
+                    {requests.length > 0 ? requests.slice(0, 20).map((request) => {
+                      const typeInfo = (() => {
+                        switch(request.type) {
+                          case 'workCertificate': return { label: t('workCertificate'), color: 'bg-green-100 text-green-700' };
+                          case 'vacationRequest': return { label: t('vacationRequest'), color: 'bg-blue-100 text-blue-700' };
+                          case 'missionOrder': return { label: t('missionOrder'), color: 'bg-purple-100 text-purple-700' };
+                          case 'salaryDomiciliation': return { label: t('salaryDomiciliation'), color: 'bg-cyan-100 text-cyan-700' };
+                          case 'annualIncome': return { label: t('annualIncome'), color: 'bg-orange-100 text-orange-700' };
+                          default: return { label: t('notSpecified'), color: 'bg-gray-100 text-gray-800' };
+                        }
+                      })();
+                      const uniqueKey = `${request.id}-${request.type}`;
+                      return (
+                        <div
+                          key={uniqueKey}
+                          className={`flex items-center justify-between p-3 bg-gray-50 rounded-lg transition-all cursor-pointer border-2 ${highlightedRequestId === uniqueKey ? 'border-blue-500 shadow-md' : 'border-transparent'}`}
+                          onClick={() => {
+                            setActiveTab('requests');
+                            setHighlightedRequestId(uniqueKey);
+                            setTimeout(() => {
+                              if (requestsListRef.current) {
+                                requestsListRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              }
+                            }, 200);
+                          }}
+                        >
+                          <div>
+                            <p className="font-semibold text-sm">
+                              {request.full_name || t('notSpecified')}
+                            </p>
+                            <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${typeInfo.color}`}>{typeInfo.label}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              request.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {getStatusName(request.status)}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {getStatusName(request.status)}
-                          </span>
-                        </div>
-                      </div>
-                    )) : (
+                      );
+                    }) : (
                       <p className="text-center text-gray-500 py-8">{t('noRequests')}</p>
                     )}
                   </div>
@@ -399,7 +427,7 @@ const AdminDashboard: React.FC = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="requests" className="p-0 sm:p-6">
+          <TabsContent value="requests" className="p-4 sm:p-6">
             <Card>
               <CardHeader className="p-4 sm:p-6">
                 <CardTitle className="flex items-center gap-2">
@@ -412,6 +440,9 @@ const AdminDashboard: React.FC = () => {
                   <AdminRequestsTable 
                     requests={requests}
                     onRequestUpdate={handleRefreshData}
+                    setRequests={setRequests}
+                    highlightedRequestId={highlightedRequestId}
+                    clearHighlight={() => setHighlightedRequestId(null)}
                   />
                 </div>
               </CardContent>

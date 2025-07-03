@@ -9,11 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/contexts/AuthContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 const formSchema = z.object({
   fullName: z.string().min(3, { message: 'Please enter your full name.' }),
   matricule: z.string().min(1, { message: 'Please enter your matricule.' }),
   file: z.instanceof(File).refine(file => file.size > 0, 'File is required.'),
+  status: z.string().optional(),
 });
 
 const SalaryDomiciliation: React.FC = () => {
@@ -21,6 +23,8 @@ const SalaryDomiciliation: React.FC = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { user } = useAuth();
+  const [showUrgentDialog, setShowUrgentDialog] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState<z.infer<typeof formSchema> | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -28,6 +32,7 @@ const SalaryDomiciliation: React.FC = () => {
       fullName: '',
       matricule: '',
       file: new File([], ''),
+      status: '',
     },
   });
 
@@ -37,6 +42,18 @@ const SalaryDomiciliation: React.FC = () => {
     }
   }, [user]);
 
+  const handleFormSubmit = (values: z.infer<typeof formSchema>) => {
+    setPendingFormData(values);
+    setShowUrgentDialog(true);
+  };
+
+  const handleUrgentChoice = async (isUrgent: boolean) => {
+    if (!pendingFormData) return;
+    await handleSubmit({ ...pendingFormData, status: isUrgent ? 'urgent' : 'pending' });
+    setShowUrgentDialog(false);
+    setPendingFormData(null);
+  };
+
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
 
@@ -45,6 +62,7 @@ const SalaryDomiciliation: React.FC = () => {
     formData.append('matricule', values.matricule);
     formData.append('file', values.file);
     formData.append('type', 'salaryDomiciliation');
+    formData.append('status', values.status || 'pending');
 
     try {
       await axios.post('http://localhost:8000/api/salary-domiciliations', formData, {
@@ -84,7 +102,7 @@ const SalaryDomiciliation: React.FC = () => {
             <h2 className="text-lg font-semibold text-center">{language === 'ar' ? 'تفاصيل الطلب' : 'Détails de la demande'}</h2>
           </div>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 p-6 md:p-8">
+            <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6 p-6 md:p-8">
               <FormField
                 control={form.control}
                 name="fullName"
@@ -141,6 +159,35 @@ const SalaryDomiciliation: React.FC = () => {
             </form>
           </Form>
         </div>
+        {/* مربع حوار تحديد حالة الطلب */}
+        <Dialog open={showUrgentDialog} onOpenChange={setShowUrgentDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle
+                className="text-lg font-bold text-center"
+                dir={language === 'fr' ? 'ltr' : undefined}
+              >
+                {language === 'ar' ? 'هل هذا الطلب عاجل؟' : 'Cette demande est-elle urgente\u00A0?'}
+              </DialogTitle>
+            </DialogHeader>
+            <DialogFooter className="flex flex-row justify-center gap-6 mt-6">
+              <button
+                type="button"
+                className="w-28 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 font-semibold text-base transition"
+                onClick={() => handleUrgentChoice(false)}
+              >
+                {language === 'ar' ? 'لا' : 'Non'}
+              </button>
+              <button
+                type="button"
+                className="w-28 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-semibold text-base transition"
+                onClick={() => handleUrgentChoice(true)}
+              >
+                {language === 'ar' ? 'نعم' : 'Oui'}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

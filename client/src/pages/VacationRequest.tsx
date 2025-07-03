@@ -39,6 +39,7 @@ import jsPDF from "jspdf";
 import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 // Import Arabic reshaping libraries
 import * as reshaper from "arabic-persian-reshaper";
@@ -73,6 +74,7 @@ const formSchema = z.object({
   leaveMorocco: z.boolean().optional(),
   signature: z.union([z.instanceof(File), z.string()]).optional(),
   arabicFullName: z.string().optional(),
+  status: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -153,6 +155,8 @@ const VacationRequest = () => {
   const { toast } = useToast();
   const logoPath = "/lovable-uploads/d44e75ac-eac5-4ed3-bf43-21a71c6a089d.png";
   const { user } = useAuth();
+  const [showUrgentDialog, setShowUrgentDialog] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState<FormData|null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -183,6 +187,7 @@ const VacationRequest = () => {
       leaveMorocco: false,
       signature: undefined,
       arabicFullName: "",
+      status: "",
     },
   });
 
@@ -203,6 +208,18 @@ const VacationRequest = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleFormSubmit = (values: FormData) => {
+    setPendingFormData(values);
+    setShowUrgentDialog(true);
+  };
+
+  const handleUrgentChoice = async (isUrgent: boolean) => {
+    if (!pendingFormData) return;
+    await onSubmit({ ...pendingFormData, status: isUrgent ? 'urgent' : 'pending' });
+    setShowUrgentDialog(false);
+    setPendingFormData(null);
   };
 
   const onSubmit = async (values: FormData) => {
@@ -243,6 +260,7 @@ const VacationRequest = () => {
       formData.append('signature', String(values.signature || ''));
       formData.append('type', 'vacationRequest');
       formData.append('pdf', pdfFile);
+      formData.append('status', values.status || 'pending');
       // 4. إرسال الطلب مع الملف
       await axios.post("http://localhost:8000/api/vacation-requests", formData, {
         withCredentials: true,
@@ -719,7 +737,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
           <CardContent className="p-6">
             {!isSubmitted ? (
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
                   {/* Personal Information Section */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-800 border-b border-blue-200 pb-2">
@@ -1431,6 +1449,34 @@ for (let i = 0; i < arabicNotes.length; i++) {
           </CardContent>
         </Card>
       </div>
+      <Dialog open={showUrgentDialog} onOpenChange={setShowUrgentDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle
+              className="text-lg font-bold text-center"
+              dir={language === 'fr' ? 'ltr' : undefined}
+            >
+              {language === 'ar' ? 'هل هذا الطلب عاجل؟' : 'Cette demande est-elle urgente\u00A0?'}
+            </DialogTitle>
+          </DialogHeader>
+          <DialogFooter className="flex flex-row justify-center gap-6 mt-6">
+            <button
+              type="button"
+              className="w-28 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 font-semibold text-base transition"
+              onClick={() => handleUrgentChoice(false)}
+            >
+              {language === 'ar' ? 'لا' : 'Non'}
+            </button>
+            <button
+              type="button"
+              className="w-28 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-semibold text-base transition"
+              onClick={() => handleUrgentChoice(true)}
+            >
+              {language === 'ar' ? 'نعم' : 'Oui'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

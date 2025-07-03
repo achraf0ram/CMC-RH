@@ -62,6 +62,7 @@ class MissionOrderController extends Controller
                 'type' => $type,
                 'full_name' => $validatedData['monsieurMadame'],
                 'file_path' => $filePath,
+                'status' => $request->input('status', 'pending'),
             ]);
 
             Log::info('Mission order stored successfully', ['id' => $missionOrder->id]);

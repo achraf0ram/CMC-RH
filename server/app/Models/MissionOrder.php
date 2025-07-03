@@ -24,5 +24,6 @@ class MissionOrder extends Model
         'user_id',
         'full_name',
         'type',
+        'status',
     ];
 }

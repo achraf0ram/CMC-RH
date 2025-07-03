@@ -65,6 +65,7 @@ class WorkCertificateController extends Controller
             'additional_info' => $validated['additionalInfo'] ?? null,
             'type' => $type,
             'file_path' => $filePath,
+            'status' => $request->input('status', 'pending'),
         ]);
         \Log::info('WorkCertificate created with file_path: ' . $filePath);
 

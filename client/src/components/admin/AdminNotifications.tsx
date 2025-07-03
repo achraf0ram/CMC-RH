@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axiosInstance from '@/components/Api/axios';
-import { Users, FileText, AlertTriangle } from 'lucide-react';
+import { Users, FileText, AlertTriangle, Calendar, ClipboardCheck, CreditCard, DollarSign } from 'lucide-react';
+import { RequestDetailsDialog } from './RequestDetailsDialog';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface NotificationItem {
   type: 'user' | 'request' | 'urgent';
@@ -8,11 +10,35 @@ interface NotificationItem {
   title: string;
   message: string;
   date: string;
+  full_name?: string;
+  requestType?: string;
+  request?: any;
 }
 
 export const AdminNotifications = () => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { t } = useLanguage();
+
+  // دالة لعرض نوع الطلب بشكل جميل
+  const getTypeInfo = (type: string) => {
+    switch (type) {
+      case 'vacationRequest':
+        return { label: t('vacationRequest'), color: 'bg-blue-100 text-blue-700', icon: <Calendar className="w-4 h-4 mr-1 inline" /> };
+      case 'workCertificate':
+        return { label: t('workCertificate'), color: 'bg-green-100 text-green-700', icon: <FileText className="w-4 h-4 mr-1 inline" /> };
+      case 'missionOrder':
+        return { label: t('missionOrder'), color: 'bg-purple-100 text-purple-700', icon: <ClipboardCheck className="w-4 h-4 mr-1 inline" /> };
+      case 'salaryDomiciliation':
+        return { label: t('salaryDomiciliation'), color: 'bg-cyan-100 text-cyan-700', icon: <CreditCard className="w-4 h-4 mr-1 inline" /> };
+      case 'annualIncome':
+        return { label: t('annualIncome'), color: 'bg-orange-100 text-orange-700', icon: <DollarSign className="w-4 h-4 mr-1 inline" /> };
+      default:
+        return { label: t('notSpecified') || type, color: 'bg-gray-100 text-gray-800', icon: null };
+    }
+  };
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -35,6 +61,9 @@ export const AdminNotifications = () => {
           title: 'Nouvelle demande',
           message: r.full_name + ' a soumis une demande: ' + r.type,
           date: r.created_at,
+          full_name: r.full_name,
+          requestType: r.type,
+          request: r,
         }));
         const urgentRes = await axiosInstance.get('/admin/urgent-messages');
         const urgentsArray = Array.isArray(urgentRes.data) ? urgentRes.data : urgentRes.data.data || urgentRes.data.urgents || [];
@@ -61,20 +90,45 @@ export const AdminNotifications = () => {
       <h4 className="font-semibold text-slate-800 mb-2">Notifications</h4>
       {loading && <div>Chargement...</div>}
       {!loading && notifications.length === 0 && <div className="text-gray-500">Aucune notification récente.</div>}
-      <ul className="space-y-2">
+      <ul className="space-y-1">
         {notifications.map((notif) => (
-          <li key={notif.type + notif.id} className="flex items-start gap-2 p-2 rounded hover:bg-slate-50">
-            {notif.type === 'user' && <Users className="w-5 h-5 text-blue-500 mt-1" />}
-            {notif.type === 'request' && <FileText className="w-5 h-5 text-green-600 mt-1" />}
-            {notif.type === 'urgent' && <AlertTriangle className="w-5 h-5 text-red-600 mt-1" />}
-            <div>
-              <div className="font-medium">{notif.title}</div>
-              <div className="text-xs text-gray-700 mb-1">{notif.message}</div>
-              <div className="text-xs text-gray-400">{new Date(notif.date).toLocaleString('fr-FR')}</div>
+          <li
+            key={notif.type + notif.id}
+            className="flex items-start gap-2 p-1 rounded hover:bg-slate-50 cursor-pointer transition-all"
+            onClick={() => {
+              if (notif.type === 'request' && notif.request) {
+                setSelectedRequest(notif.request);
+                setIsDialogOpen(true);
+              }
+            }}
+          >
+            {notif.type === 'user' && <Users className="w-4 h-4 text-blue-500 mt-0.5" />}
+            {notif.type === 'request' && getTypeInfo(notif.requestType).icon}
+            {notif.type === 'urgent' && <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5" />}
+            <div className="flex flex-col gap-0.5">
+              <div className="font-medium text-[13px] leading-tight">{notif.title}</div>
+              {notif.type === 'request' ? (
+                <div className="flex items-center gap-1 text-xs text-gray-700 mb-0.5">
+                  <span className="font-semibold text-[12px]">{notif.full_name}</span>
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium ${getTypeInfo(notif.requestType).color}`}
+                        style={{marginLeft: 2}}>
+                    {getTypeInfo(notif.requestType).icon}
+                    {getTypeInfo(notif.requestType).label}
+                  </span>
+                </div>
+              ) : (
+                <div className="text-xs text-gray-700 mb-0.5">{notif.message}</div>
+              )}
+              <div className="text-[11px] text-gray-400">{new Date(notif.date).toLocaleString('fr-FR')}</div>
             </div>
           </li>
         ))}
       </ul>
+      <RequestDetailsDialog
+        request={selectedRequest}
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+      />
     </div>
   );
 }; 

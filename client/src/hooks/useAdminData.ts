@@ -62,5 +62,5 @@ export const useAdminData = () => {
     fetchData();
   }, [fetchData]);
 
-  return { requests, users, stats, isLoading, error, refreshData: fetchData };
+  return { requests, users, stats, isLoading, error, refreshData: fetchData, setRequests };
 }; 

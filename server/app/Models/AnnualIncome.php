@@ -9,5 +9,5 @@ class AnnualIncome extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['full_name', 'matricule', 'file_path'];
+    protected $fillable = ['full_name', 'matricule', 'file_path', 'status'];
 } 

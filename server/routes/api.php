@@ -74,6 +74,7 @@ Route::middleware(['auth:sanctum', AdminMiddleware::class])->prefix('admin')->gr
     Route::get('/urgent-messages', [UrgentMessageController::class, 'index']);
     Route::delete('/urgent-messages/{id}', [UrgentMessageController::class, 'destroy']);
     Route::post('/urgent-messages/{id}/reply', [UrgentMessageController::class, 'reply']);
+    Route::delete('/requests/{type}/{id}', [AdminDashboardController::class, 'destroy']);
 });
 
 // إشعارات المستخدم

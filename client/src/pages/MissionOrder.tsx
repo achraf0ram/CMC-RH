@@ -29,6 +29,7 @@ import jsPDF from "jspdf";
 import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
 import { useAuth } from '@/contexts/AuthContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 // Import the Arabic font data
 import { AmiriFont } from "../fonts/AmiriFont";
@@ -39,6 +40,8 @@ const MissionOrder = () => {
   const { language, t } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
+  const [showUrgentDialog, setShowUrgentDialog] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState<z.infer<typeof formSchema> | null>(null);
 
   // تعريف الـ Schema للتحقق من صحة البيانات
   const formSchema = z.object({
@@ -61,6 +64,7 @@ const MissionOrder = () => {
     startTime: z.string().optional(),
     endTime: z.string().optional(),
     additionalInfo: z.string().optional(),
+    status: z.string().optional(),
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -75,6 +79,7 @@ const MissionOrder = () => {
       conducteurMatricule: "",
       startTime: "",
       endTime: "",
+      status: "",
     },
   });
 
@@ -98,8 +103,10 @@ const MissionOrder = () => {
       
       // Show success toast
       toast({
-        title: "تم بنجاح",
-        description: "تم إنشاء أمر المهمة وتحميله بنجاح",
+        title: language === 'ar' ? "تم بنجاح" : "Envoyé avec succès",
+        description: language === 'ar'
+          ? "تم إنشاء أمر المهمة وتحميله بنجاح."
+          : "L'ordre de mission a été créé et téléchargé avec succès.",
         variant: "default",
         className: "bg-green-50 border-green-200",
       });
@@ -113,6 +120,18 @@ const MissionOrder = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleFormSubmit = (values: z.infer<typeof formSchema>) => {
+    setPendingFormData(values);
+    setShowUrgentDialog(true);
+  };
+
+  const handleUrgentChoice = async (isUrgent: boolean) => {
+    if (!pendingFormData) return;
+    await onSubmit({ ...pendingFormData, status: isUrgent ? 'urgent' : 'pending' });
+    setShowUrgentDialog(false);
+    setPendingFormData(null);
   };
 
   // دالة لتوليد PDF
@@ -262,8 +281,8 @@ doc.text(format(data.endDate, "yyyy-MM-dd"), col1X + 45, startY + rowHeight * 5.
                 <CheckCircle className="h-8 w-8 md:h-10 md:w-10 text-white" />
               </div>
               <div>
-                <h2 className="text-xl md:text-2xl font-bold mb-2 md:mb-3 text-slate-800">تم الإرسال بنجاح</h2>
-                <p className="text-slate-600 leading-relaxed mb-4 md:mb-6 text-sm md:text-base">تم إرسال طلب أمر المهمة بنجاح وسيتم معالجته قريباً</p>
+                <h2 className="text-xl md:text-2xl font-bold mb-2 md:mb-3 text-slate-800">{t('successTitle')}</h2>
+                <p className="text-slate-600 leading-relaxed mb-4 md:mb-6 text-sm md:text-base">{t('successDescMission')}</p>
                 <Button 
                   onClick={() => {
                     setIsSubmitted(false);
@@ -271,7 +290,7 @@ doc.text(format(data.endDate, "yyyy-MM-dd"), col1X + 45, startY + rowHeight * 5.
                   }}
                   className="border-blue-500 text-blue-600 hover:bg-blue-50 px-6 md:px-8 py-2 md:py-3 rounded-lg text-sm md:text-base"
                 >
-                  إرسال طلب جديد
+                  {t('newRequestBtn')}
                 </Button>
               </div>
             </div>
@@ -302,7 +321,7 @@ doc.text(format(data.endDate, "yyyy-MM-dd"), col1X + 45, startY + rowHeight * 5.
           </CardHeader>
           <CardContent className="p-4 md:p-8">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 md:space-y-6">
+              <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 md:space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <FormField
                     control={form.control}
@@ -577,6 +596,35 @@ doc.text(format(data.endDate, "yyyy-MM-dd"), col1X + 45, startY + rowHeight * 5.
           </CardContent>
         </Card>
       </div>
+      {/* مربع حوار تحديد حالة الطلب */}
+      <Dialog open={showUrgentDialog} onOpenChange={setShowUrgentDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle
+              className="text-lg font-bold text-center"
+              dir={language === 'fr' ? 'ltr' : undefined}
+            >
+              {language === 'ar' ? 'هل هذا الطلب عاجل؟' : 'Cette demande est-elle urgente\u00A0?'}
+            </DialogTitle>
+          </DialogHeader>
+          <DialogFooter className="flex flex-row justify-center gap-6 mt-6">
+            <button
+              type="button"
+              className="w-28 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 font-semibold text-base transition"
+              onClick={() => handleUrgentChoice(false)}
+            >
+              {language === 'ar' ? 'لا' : 'Non'}
+            </button>
+            <button
+              type="button"
+              className="w-28 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-semibold text-base transition"
+              onClick={() => handleUrgentChoice(true)}
+            >
+              {language === 'ar' ? 'نعم' : 'Oui'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

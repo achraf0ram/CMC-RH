@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { FileText, Calendar, ClipboardCheck, CreditCard, DollarSign } from 'lucide-react';
 import { fr } from 'date-fns/locale';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 // This declaration tells TypeScript that the jsPDF object and its autoTable method will exist on the window object.
 declare global {
@@ -37,14 +38,19 @@ interface Request {
 interface AdminRequestsTableProps {
   requests: Request[];
   onRequestUpdate: () => void;
+  setRequests?: React.Dispatch<React.SetStateAction<Request[]>>;
+  highlightedRequestId?: string | null;
+  clearHighlight?: () => void;
 }
 
-export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests, onRequestUpdate }) => {
+export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests, onRequestUpdate, setRequests, highlightedRequestId, clearHighlight }) => {
   const { toast } = useToast();
   const { t } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [requestToDelete, setRequestToDelete] = useState<Request | null>(null);
 
   const requestTypes = useMemo(() => {
     const types = Array.from(new Set(requests.map(r => r.type)));
@@ -120,17 +126,72 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
     }
     switch (type) {
       case 'vacationRequest':
-        return { label: t('vacationRequest'), color: 'bg-blue-100 text-blue-800', icon: <Calendar className="w-4 h-4 mr-1 inline" /> };
+        return { label: t('vacationRequest'), color: 'bg-blue-100 text-blue-700', icon: <Calendar className="w-4 h-4 mr-1 inline" /> };
       case 'workCertificate':
-        return { label: t('workCertificate'), color: 'bg-green-100 text-green-800', icon: <FileText className="w-4 h-4 mr-1 inline" /> };
+        return { label: t('workCertificate'), color: 'bg-green-100 text-green-700', icon: <FileText className="w-4 h-4 mr-1 inline" /> };
       case 'missionOrder':
-        return { label: t('missionOrder'), color: 'bg-yellow-100 text-yellow-800', icon: <ClipboardCheck className="w-4 h-4 mr-1 inline" /> };
+        return { label: t('missionOrder'), color: 'bg-purple-100 text-purple-700', icon: <ClipboardCheck className="w-4 h-4 mr-1 inline" /> };
       case 'salaryDomiciliation':
-        return { label: t('salaryDomiciliation'), color: 'bg-indigo-100 text-indigo-800', icon: <CreditCard className="w-4 h-4 mr-1 inline" /> };
+        return { label: t('salaryDomiciliation'), color: 'bg-cyan-100 text-cyan-700', icon: <CreditCard className="w-4 h-4 mr-1 inline" /> };
       case 'annualIncome':
-        return { label: t('annualIncome'), color: 'bg-rose-100 text-rose-800', icon: <DollarSign className="w-4 h-4 mr-1 inline" /> };
+        return { label: t('annualIncome'), color: 'bg-orange-100 text-orange-700', icon: <DollarSign className="w-4 h-4 mr-1 inline" /> };
       default:
         return { label: t('notSpecified') || type, color: 'bg-gray-100 text-gray-800', icon: null };
+    }
+  };
+
+  const getStatusInfo = (status: string) => {
+    switch (status) {
+      case 'urgent':
+        return { label: t('urgent'), color: 'bg-red-100 text-red-800', icon: <span className="mr-1">⚡</span> };
+      case 'pending':
+      default:
+        return { label: t('pending'), color: 'bg-gray-100 text-gray-800', icon: <span className="mr-1">⏳</span> };
+    }
+  };
+
+  const handleDeleteRequest = async (req: Request) => {
+    setRequestToDelete(req);
+    setShowDeleteDialog(true);
+  };
+
+  // تحويل نوع الطلب لصيغة الباك اند
+  const typeToApi = (type: string) => {
+    switch (type) {
+      case 'workCertificate': return 'work_certificates';
+      case 'vacationRequest': return 'vacation_requests';
+      case 'missionOrder': return 'mission_orders';
+      case 'salaryDomiciliation': return 'salary_domiciliations';
+      case 'annualIncome': return 'annual_incomes';
+      default: return type;
+    }
+  };
+
+  const confirmDeleteRequest = async () => {
+    if (!requestToDelete) return;
+    try {
+      const url = `/admin/requests/${typeToApi(requestToDelete.type)}/${requestToDelete.id}`;
+      console.log('DELETE URL:', url, 'type:', requestToDelete.type, 'id:', requestToDelete.id);
+      await api.delete(url);
+      toast({
+        title: 'Deleted',
+        description: 'Request deleted successfully.',
+        variant: 'default',
+        className: 'bg-green-50 border-green-200',
+      });
+      if (setRequests) {
+        setRequests(prev => prev.filter(r => !(r.id === requestToDelete.id && r.type === requestToDelete.type)));
+      }
+      onRequestUpdate();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete request.',
+        variant: 'destructive',
+      });
+    } finally {
+      setShowDeleteDialog(false);
+      setRequestToDelete(null);
     }
   };
 
@@ -189,63 +250,65 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredRequests.map(req => (
-            <TableRow
-              key={`${req.type}-${req.id}`}
-              className="hover:bg-gray-50 cursor-pointer"
-              onClick={() => setSelectedRequest(req)}
-            >
-              <TableCell className="py-2 px-3 text-sm">{req.full_name}</TableCell>
-              <TableCell className="py-2 px-3 text-sm">{req.matricule}</TableCell>
-              <TableCell className="py-2 px-3 text-sm">
-                {(() => {
-                  const info = getTypeInfo(req.type, req.leave_type);
-                  return (
-                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold ${info.color}`}>
-                      {info.icon}
-                      {info.label}
+          {filteredRequests.map(req => {
+            const uniqueKey = `${req.id}-${req.type}`;
+            return (
+              <TableRow
+                key={uniqueKey}
+                className={`hover:bg-gray-50 cursor-pointer transition-all ${highlightedRequestId === uniqueKey ? 'border-2 border-blue-500 shadow-md' : ''}`}
+                onClick={() => {
+                  setSelectedRequest(req);
+                  if (clearHighlight) clearHighlight();
+                }}
+              >
+                <TableCell className="py-2 px-3 text-sm">{req.full_name}</TableCell>
+                <TableCell className="py-2 px-3 text-sm">{req.matricule}</TableCell>
+                <TableCell className="py-2 px-3 text-sm">
+                  {(() => {
+                    const info = getTypeInfo(req.type, req.leave_type);
+                    return (
+                      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold ${info.color}`}>
+                        {info.icon}
+                        {info.label}
+                      </span>
+                    );
+                  })()}
+                </TableCell>
+                <TableCell className="py-2 px-3 text-sm">
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-base">
+                      {format(new Date(req.created_at), 'HH:mm', { locale: fr })}
                     </span>
-                  );
-                })()}
-              </TableCell>
-              <TableCell className="py-2 px-3 text-sm">
-                <div className="flex flex-col">
-                  <span className="font-semibold text-base">
-                    {format(new Date(req.created_at), 'HH:mm', { locale: fr })}
-                  </span>
-                  <span className="text-xs text-gray-500 mt-1">
-                    {format(new Date(req.created_at), 'd MMMM yyyy', { locale: fr })}
-                  </span>
-                </div>
-              </TableCell>
-              <TableCell className="py-2 px-3 text-sm">
-                {req.file_path ? (
-                  <Button size="sm" variant="secondary" asChild>
-                    <Link to={`/file-viewer?file=${encodeURIComponent(`http://localhost:8000/storage/${req.file_path}`)}`}>
-                      FileViewer
-                    </Link>
-                  </Button>
-                ) : (
-                  <span className="text-gray-400">No File</span>
-                )}
-              </TableCell>
-              <TableCell className="py-2 px-3 text-sm space-x-2" onClick={e => e.stopPropagation()}>
-                {req.status === 'pending' && (
-                  <>
-                    <Button size="sm" onClick={() => handleUpdateStatus(req.type, req.id, 'approved')}>Approve</Button>
-                    <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(req.type, req.id, 'rejected')}>Reject</Button>
-                  </>
-                )}
-                {req.file_path && ['vacationRequest', 'missionOrder', 'workCertificate'].includes(req.type) && (
-                  <Button size="sm" variant="outline" asChild>
-                    <Link to={`/file-viewer?file=${encodeURIComponent(`http://localhost:8000/storage/${req.file_path}`)}`}>
-                      View File
-                    </Link>
-                  </Button>
-                )}
-              </TableCell>
-            </TableRow>
-          ))}
+                    <span className="text-xs text-gray-500 mt-1">
+                      {format(new Date(req.created_at), 'd MMMM yyyy', { locale: fr })}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell className="py-2 px-3 text-sm">
+                  {req.file_path ? (
+                    <Button size="sm" variant="secondary" asChild>
+                      <Link to={`/file-viewer?file=${encodeURIComponent(`http://localhost:8000/storage/${req.file_path}`)}`}>
+                        FileViewer
+                      </Link>
+                    </Button>
+                  ) : (
+                    <span className="text-gray-400">No File</span>
+                  )}
+                </TableCell>
+                <TableCell className="py-2 px-3 text-sm space-x-2" onClick={e => e.stopPropagation()}>
+                  <Button size="sm" onClick={() => handleUpdateStatus(req.type, req.id, 'approved')}>Approve</Button>
+                  <Button size="sm" variant="destructive" onClick={() => handleDeleteRequest(req)}>Reject</Button>
+                  {req.file_path && ['vacationRequest', 'missionOrder', 'workCertificate'].includes(req.type) && (
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to={`/file-viewer?file=${encodeURIComponent(`http://localhost:8000/storage/${req.file_path}`)}`}>
+                        View File
+                      </Link>
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
       <RequestDetailsDialog
@@ -253,6 +316,31 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
         onClose={() => setSelectedRequest(null)}
         request={selectedRequest}
       />
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-center">
+              {t('deleteRequestConfirmation')}
+            </DialogTitle>
+          </DialogHeader>
+          <DialogFooter className="flex flex-row justify-center gap-4 mt-4">
+            <button
+              type="button"
+              className="px-6 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 font-semibold text-base transition"
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              {t('cancel')}
+            </button>
+            <button
+              type="button"
+              className="px-6 py-2 rounded bg-red-600 text-white hover:bg-red-700 font-semibold text-base transition"
+              onClick={confirmDeleteRequest}
+            >
+              {t('delete')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }; 

@@ -115,6 +115,7 @@ class VacationRequestController extends Controller
                 'signature_path' => $signaturePath,
                 'file_path' => $filePath,
                 'type' => $type,
+                'status' => $request->input('status', 'pending'),
             ]);
 
             Log::info('Vacation request stored successfully', ['id' => $vacationRequest->id]);

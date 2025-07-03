@@ -119,6 +119,20 @@ const translations: Translations = {
     successDescMission: "تم إرسال طلب أمر المهمة بنجاح وسيتم معالجته قريباً",
     successDescWork: "تم إرسال طلب شهادة العمل بنجاح وسيتم معالجته قريباً",
     newRequestBtn: "إرسال طلب جديد",
+    details: "تفاصيل",
+    matricule: "الرقم المالي",
+    status: "الحالة",
+    createdAt: "تاريخ الإنشاء",
+    attachment: "المرفق",
+    viewFile: "عرض الملف",
+    address: "العنوان",
+    leaveType: "نوع الإجازة",
+    duration: "المدة",
+    family: "العائلة",
+    direction: "الإدارة",
+    grade: "الرتبة",
+    echelon: "السلم",
+    fonction: "الوظيفة",
 
     // Admin Dashboard Translations
     adminDashboardTitle: "منصة إدارة الموارد البشرية - CMC",
@@ -156,7 +170,9 @@ const translations: Translations = {
     missionOrder_t: "أمر مهمة",
     salaryDomiciliation_t: "توطين الراتب",
     annualIncome_t: "شهادة الدخل السنوي",
-    urgentMessageAdminReplyTitle: "لقد تلقيت رداً من الإدارة على رسالتك العاجلة."
+    urgentMessageAdminReplyTitle: "لقد تلقيت رداً من الإدارة على رسالتك العاجلة.",
+    deleteRequestConfirmation: "هل أنت متأكد أنك تريد حذف هذا الطلب؟",
+    delete: "حذف"
   },
   fr: {
     home: "Accueil",
@@ -268,6 +284,20 @@ const translations: Translations = {
     successDescMission: "Votre demande d'ordre de mission a été envoyée avec succès et sera traitée prochainement.",
     successDescWork: "Votre demande d'attestation de travail a été envoyée avec succès et sera traitée prochainement.",
     newRequestBtn: "Nouvelle demande",
+    details: "Détails",
+    matricule: "Matricule",
+    status: "Statut",
+    createdAt: "Date de création",
+    attachment: "Pièce jointe",
+    viewFile: "Voir le fichier",
+    address: "Adresse",
+    leaveType: "Type de congé",
+    duration: "Durée",
+    family: "Famille",
+    direction: "Direction",
+    grade: "Grade",
+    echelon: "Échelon",
+    fonction: "Fonction",
 
     // Admin Dashboard Translations
     adminDashboardTitle: "Plateforme de Gestion RH - CMC",
@@ -305,7 +335,9 @@ const translations: Translations = {
     missionOrder_t: "Ordre de mission",
     salaryDomiciliation_t: "Domiciliation de salaire",
     annualIncome_t: "Attestation de revenu annuel",
-    urgentMessageAdminReplyTitle: "Vous avez reçu une réponse de l'administration à votre demande urgente."
+    urgentMessageAdminReplyTitle: "Vous avez reçu une réponse de l'administration à votre demande urgente.",
+    deleteRequestConfirmation: "Êtes-vous sûr de vouloir supprimer cette demande ?",
+    delete: "Supprimer"
   }
 };
 

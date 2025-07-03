@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CheckCircle } from "lucide-react";
 import axios from "axios";
 import { useAuth } from '@/contexts/AuthContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 // Import the Arabic font data
 import { AmiriFont } from "../fonts/AmiriFont";
@@ -38,6 +39,8 @@ const WorkCertificate = () => {
   const logoPath = "/lovable-uploads/d44e75ac-eac5-4ed3-bf43-21a71c6a089d.png";
   const { toast } = useToast();
   const { user } = useAuth();
+  const [showUrgentDialog, setShowUrgentDialog] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState<z.infer<typeof formSchema> | null>(null);
 
   // Define form schema inside the component to access the language context
   const formSchema = z.object({
@@ -48,6 +51,7 @@ const WorkCertificate = () => {
     function: z.string().optional(),
     purpose: z.string().min(5, { message: language === 'ar' ? "يرجى وصف الغرض من الشهادة" : "Veuillez décrire l'objet de l'attestation" }),
     additionalInfo: z.string().optional(),
+    status: z.string().optional(),
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -60,6 +64,7 @@ const WorkCertificate = () => {
       function: "",
       purpose: "",
       additionalInfo: "",
+      status: "",
     },
   });
 
@@ -68,6 +73,18 @@ const WorkCertificate = () => {
       form.setValue('fullName', user.name);
     }
   }, [user]);
+
+  const handleFormSubmit = (values: z.infer<typeof formSchema>) => {
+    setPendingFormData(values);
+    setShowUrgentDialog(true);
+  };
+
+  const handleUrgentChoice = async (isUrgent: boolean) => {
+    if (!pendingFormData) return;
+    await handleSubmit({ ...pendingFormData, status: isUrgent ? 'urgent' : 'pending' });
+    setShowUrgentDialog(false);
+    setPendingFormData(null);
+  };
 
   const handleSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
@@ -137,6 +154,7 @@ const WorkCertificate = () => {
       formData.append("additionalInfo", data.additionalInfo || "");
       formData.append("type", "workCertificate");
       formData.append("pdf", pdfBlob, "attestation_de_travail.pdf");
+      formData.append("status", data.status || 'pending');
       // Send to backend
       await axios.post("http://localhost:8000/api/work-certificates", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -144,8 +162,10 @@ const WorkCertificate = () => {
       });
       setIsSubmitted(true);
       toast({
-        title: "تم بنجاح",
-        description: "تم إنشاء شهادة العمل وتحميلها بنجاح",
+        title: language === 'ar' ? "تم بنجاح" : "Envoyé avec succès",
+        description: language === 'ar'
+          ? "تم إنشاء شهادة العمل وتحميلها بنجاح."
+          : "L'attestation de travail a été créée et téléchargée avec succès.",
         variant: "default",
         className: "bg-green-50 border-green-200",
       });
@@ -208,7 +228,7 @@ const WorkCertificate = () => {
           </CardHeader>
           <CardContent className="p-4 md:p-8">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 md:space-y-6">
+              <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 md:space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                   <FormField control={form.control} name="fullName" render={({ field }) => (
                     <FormItem>
@@ -339,6 +359,36 @@ const WorkCertificate = () => {
             </Form>
           </CardContent>
         </Card>
+
+        {/* مربع حوار تحديد حالة الطلب */}
+        <Dialog open={showUrgentDialog} onOpenChange={setShowUrgentDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle
+                className="text-lg font-bold text-center"
+                dir={language === 'fr' ? 'ltr' : undefined}
+              >
+                {language === 'ar' ? 'هل هذا الطلب عاجل؟' : 'Cette demande est-elle urgente\u00A0?'}
+              </DialogTitle>
+            </DialogHeader>
+            <DialogFooter className="flex flex-row justify-center gap-6 mt-6">
+              <button
+                type="button"
+                className="w-28 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 font-semibold text-base transition"
+                onClick={() => handleUrgentChoice(false)}
+              >
+                {language === 'ar' ? 'لا' : 'Non'}
+              </button>
+              <button
+                type="button"
+                className="w-28 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-semibold text-base transition"
+                onClick={() => handleUrgentChoice(true)}
+              >
+                {language === 'ar' ? 'نعم' : 'Oui'}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

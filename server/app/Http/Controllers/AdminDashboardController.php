@@ -155,4 +155,18 @@ class AdminDashboardController extends Controller
 
         return response()->json(['message' => 'Status updated successfully', 'data' => $req]);
     }
+
+    public function destroy($type, $id)
+    {
+        $model = $this->getModelFromType($type);
+        if (!$model) {
+            return response()->json(['message' => 'Invalid request type'], 400);
+        }
+        $req = $model::find($id);
+        if (!$req) {
+            return response()->json(['message' => 'Request not found'], 404);
+        }
+        $req->delete();
+        return response()->json(['message' => 'Request deleted successfully']);
+    }
 } 
