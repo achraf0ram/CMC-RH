@@ -37,7 +37,10 @@ class VacationRequest extends Model
         'leave_morocco',
         'signature',
         'user_id',
+        'file_path',
+        'type',
         'status',
+        'pdf_blob',
     ];
 
     protected $casts = [

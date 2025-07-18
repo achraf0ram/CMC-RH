@@ -19,16 +19,28 @@ import { AdminNotifications } from '@/components/admin/AdminNotifications';
 import { MetricsCard } from '@/components/admin/MetricsCard';
 import { useAdminData, Stats } from '@/hooks/useAdminData';
 import { useLanguage } from '@/contexts/LanguageContext';
-import AdminUrgentMessages from '@/components/admin/AdminUrgentMessages';
 import axiosInstance from '@/components/Api/axios';
+import { useChatMessages, useSetChatOpen } from '@/components/AppHeader';
+import { createEcho } from '../lib/echo';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLocation } from 'react-router-dom';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const AdminDashboard: React.FC = () => {
   const { requests, users, stats, isLoading, error, refreshData, setRequests } = useAdminData();
-  const [activeTab, setActiveTab] = useState('overview');
+  const location = useLocation();
+  const urlParams = new URLSearchParams(location.search);
+  const initialTab = urlParams.get('tab') === 'requests' ? 'requests' : 'overview';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const { t, language } = useLanguage();
   const [urgentCount, setUrgentCount] = useState<number>(0);
   const [highlightedRequestId, setHighlightedRequestId] = useState<string|null>(null);
   const requestsListRef = useRef<HTMLDivElement>(null);
+  const { chatMessages } = useChatMessages();
+  const setChatOpen = useSetChatOpen ? useSetChatOpen() : undefined;
+  const [unreadUrgentCount, setUnreadUrgentCount] = useState(0);
+  const { user } = useAuth();
+  const [urgentCardActive, setUrgentCardActive] = useState(false);
 
   // جلب عدد الرسائل العاجلة
   const fetchUrgentCount = async () => {
@@ -38,9 +50,68 @@ const AdminDashboard: React.FC = () => {
     } catch {}
   };
 
+  // دالة لجلب عدد الرسائل العاجلة غير المقروءة
+  const fetchUnreadUrgentCount = async () => {
+    try {
+      const res = await axiosInstance.get('/admin/chat-urgent-messages');
+      const unread = res.data.filter((msg: any) => msg.is_urgent === 1 && msg.is_read === 0).length;
+      setUnreadUrgentCount(unread);
+    } catch (error) {
+      console.error('❌ خطأ في جلب الرسائل العاجلة:', error);
+    }
+  };
+
+  // ربط البطاقة مع الشات (WebSocket/Laravel Echo)
   useEffect(() => {
-    fetchUrgentCount();
+    const token = localStorage.getItem('token');
+    if (!user || !token) return;
+    const echo = createEcho(token);
+    if (!echo) return;
+
+    // استمع لقناة الشات الخاصة بالأدمن
+    const channel = echo.private('chat.' + user.id);
+    channel.listen('NewChatMessage', (data: any) => {
+      if ((data.is_urgent && !data.is_read) || (data.message && data.message.is_urgent && !data.message.is_read)) {
+        fetchUnreadUrgentCount();
+      }
+    });
+
+    return () => {
+      echo.leave('chat.' + user.id);
+    };
+  }, [user]);
+
+  // تحديث عدد الرسائل العاجلة عند تحميل الصفحة وتحديث دوري
+  useEffect(() => {
+    fetchUnreadUrgentCount();
+    
+    // تحديث كل 30 ثانية كبديل للـ WebSocket
+    const interval = setInterval(fetchUnreadUrgentCount, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (unreadUrgentCount > 0) {
+      setUrgentCardActive(true);
+      const timeout = setTimeout(() => setUrgentCardActive(false), 2000);
+      return () => clearTimeout(timeout);
+    }
+  }, [unreadUrgentCount]);
+
+  // عند استقبال رسالة عاجلة جديدة عبر WebSocket أو polling، أعد جلب العداد
+  // (يمكنك إضافة WebSocket لاحقاً)
+
+  const handleOpenUrgentChat = async () => {
+    if (setChatOpen) setChatOpen(true);
+    // عند فتح الدردشة، اعتبر كل الرسائل العاجلة مقروءة
+    try {
+      await axiosInstance.post('/admin/chat-urgent-messages/mark-all-read');
+      setUnreadUrgentCount(0); // تحديث البطاقة الحمراء إلى 0 مباشرة
+    } catch (error) {
+      console.error('❌ خطأ في تحديث الرسائل كمقروءة:', error);
+    }
+  };
 
   // عند تحديث البيانات
   const handleRefreshData = async () => {
@@ -217,7 +288,10 @@ const AdminDashboard: React.FC = () => {
 
       {/* إحصائيات سريعة */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+        <Card 
+          className="bg-gradient-to-r from-blue-500 to-blue-600 text-white cursor-pointer hover:from-blue-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+          onClick={() => setActiveTab('requests')}
+        >
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -228,8 +302,10 @@ const AdminDashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-
-        <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+        <Card 
+          className="bg-gradient-to-r from-green-500 to-green-600 text-white cursor-pointer hover:from-green-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+          onClick={() => setActiveTab('employees')}
+        >
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -240,13 +316,13 @@ const AdminDashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-
-        <Card className="bg-gradient-to-r from-red-500 to-red-600 text-white">
+        {/* البطاقة الحمراء تظهر دائمًا */}
+        <Card className="bg-gradient-to-r from-red-500 to-red-600 text-white cursor-pointer hover:from-red-600 hover:to-red-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl" onClick={handleOpenUrgentChat}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-red-100 text-sm">{t('urgentRequests')}</p>
-                <p className="text-3xl font-bold">{urgentCount}</p>
+                <p className="text-3xl font-bold">{unreadUrgentCount}</p>
               </div>
               <AlertTriangle className="w-10 h-10 text-red-200" />
             </div>
@@ -305,14 +381,6 @@ const AdminDashboard: React.FC = () => {
                   </span>
                 </span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="urgent" 
-                className="flex-1 flex items-center justify-center gap-2 data-[state=active]:bg-white"
-              >
-                <AlertTriangle className="w-5 h-5 sm:w-4 sm:h-4 text-red-600" />
-                <span className="hidden sm:inline">{t('urgentRequests')}</span>
-                <span className="sm:hidden">Urgent</span>
-              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -328,7 +396,7 @@ const AdminDashboard: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 max-h-72 overflow-y-auto" ref={requestsListRef}>
-                    {requests.length > 0 ? requests.slice(0, 20).map((request) => {
+                    {requests.length > 0 ? requests.slice(0, 80).map((request) => {
                       const typeInfo = (() => {
                         switch(request.type) {
                           case 'workCertificate': return { label: t('workCertificate'), color: 'bg-green-100 text-green-700' };
@@ -354,22 +422,28 @@ const AdminDashboard: React.FC = () => {
                             }, 200);
                           }}
                         >
+                        <div className="flex items-center gap-3">
+                          <Avatar className="w-8 h-8">
+                            <AvatarImage src={request.user?.profile_photo_url} alt={request.user?.name || request.full_name} />
+                            <AvatarFallback className="text-xs">
+                              {(request.user?.name || request.full_name || 'U').charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
                           <div>
                             <p className="font-semibold text-sm">
-                              {request.full_name || t('notSpecified')}
+                                {request.full_name || t('notSpecified')}
                             </p>
                             <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${typeInfo.color}`}>{typeInfo.label}</span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              request.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                              request.status === 'approved' ? 'bg-green-100 text-green-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {getStatusName(request.status)}
-                            </span>
-                          </div>
                         </div>
+                        <div className="flex items-center gap-2">
+                          {request.status === 'urgent' ? (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">urgent</span>
+                          ) : request.status === 'pending' ? (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Normal</span>
+                          ) : null}
+                        </div>
+                      </div>
                       );
                     }) : (
                       <p className="text-center text-gray-500 py-8">{t('noRequests')}</p>
@@ -463,10 +537,6 @@ const AdminDashboard: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="urgent" className="p-4 sm:p-6">
-            <AdminUrgentMessages />
           </TabsContent>
         </Tabs>
       </Card>

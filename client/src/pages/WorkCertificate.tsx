@@ -27,13 +27,15 @@ import { CheckCircle } from "lucide-react";
 import axios from "axios";
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { axiosInstance } from '../components/Api/axios';
+import { SuccessMessage } from "@/components/SuccessMessage";
 
 // Import the Arabic font data
 import { AmiriFont } from "../fonts/AmiriFont";
 
 const WorkCertificate = () => {
   const { t, language } = useLanguage();
-  console.log('Current language:', language);
+
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const logoPath = "/lovable-uploads/d44e75ac-eac5-4ed3-bf43-21a71c6a089d.png";
@@ -41,6 +43,9 @@ const WorkCertificate = () => {
   const { user } = useAuth();
   const [showUrgentDialog, setShowUrgentDialog] = useState(false);
   const [pendingFormData, setPendingFormData] = useState<z.infer<typeof formSchema> | null>(null);
+  const [lastSubmittedCertificate, setLastSubmittedCertificate] = useState<any>(null);
+  const [fileInfo, setFileInfo] = useState<any>(null);
+  const [successData, setSuccessData] = useState<any>(null);
 
   // Define form schema inside the component to access the language context
   const formSchema = z.object({
@@ -81,14 +86,14 @@ const WorkCertificate = () => {
 
   const handleUrgentChoice = async (isUrgent: boolean) => {
     if (!pendingFormData) return;
-    await handleSubmit({ ...pendingFormData, status: isUrgent ? 'urgent' : 'pending' });
+    await onSubmit({ ...pendingFormData, status: isUrgent ? 'urgent' : 'pending' });
     setShowUrgentDialog(false);
     setPendingFormData(null);
   };
 
-  const handleSubmit = async (data: z.infer<typeof formSchema>) => {
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
+    setIsGenerating(true);
     try {
-      setIsGenerating(true);
       // Generate PDF from form data
       const doc = new jsPDF("p", "mm", "a4");
       const currentDate = format(new Date(), "dd/MM/yyyy");
@@ -100,13 +105,10 @@ const WorkCertificate = () => {
           img.onload = resolve;
         });
         doc.addImage(img, "PNG", 6, 6, 98, 33);
-      } catch (error) {
-        console.error("Error loading logo:", error);
-      }
+      } catch (error) {}
       // --- Arabic Font Setup ---
       doc.addFileToVFS("Amiri-Regular.ttf", AmiriFont);
       doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
-      // Set font for Latin text (like French)
       doc.setFont("helvetica", "normal");
       doc.setFontSize(12);
       doc.text("N/Réf. : OFP/DR CASA SETTAT/DAAL/SRRH /N°", 20, 45);
@@ -125,25 +127,19 @@ const WorkCertificate = () => {
       doc.text(`Est employé au sein de notre organisme depuis le : ${data.hireDate || ""}`, 20, 125);
       doc.text(`En qualité de : ${data.function || ""}`, 20, 135);
       doc.text("La présente attestation est délivrée à l'intéressé pour servir et valoir ce que de droit.", 20, 165);
-      // --- Set font for Arabic text ---
       doc.setFont('Amiri', 'normal');
       doc.setFontSize(9);
       doc.text("المديرية الجهوية لجهة الدارالبيضاء – سطات", 190, 230, { align: "right" });
       doc.text( " زنقة الكابورال إدريس اشباكو,50", 190, 234, { align: "right" });
       doc.text("عين البرجة - الدار البيضاء", 190, 238, { align: "right" });
       doc.text("الهاتف : 82 00 60 22 05 - الفاكس : 65 6039 22 05", 190, 242, { align: "right" });
-      // Add French text for the footer on the left side
       doc.setFont("helvetica", "normal");
       doc.setFontSize(9);
       doc.text("Direction Régionale CASABLANCA –SETTAT", 20, 230);
       doc.text("50, rue Caporal Driss Chbakou", 20, 234);
       doc.text("Ain Bordja-Casablanca", 20, 238);
       doc.text("Tél :05 22 60 00 82 - Fax :05 22 6039 65", 20, 242);
-      // Save PDF as Blob
       const pdfBlob = doc.output("blob");
-      // Download PDF for user
-      doc.save("attestation_de_travail.pdf");
-      // Prepare FormData
       const formData = new FormData();
       formData.append("fullName", data.fullName);
       formData.append("matricule", data.matricule);
@@ -155,25 +151,26 @@ const WorkCertificate = () => {
       formData.append("type", "workCertificate");
       formData.append("pdf", pdfBlob, "attestation_de_travail.pdf");
       formData.append("status", data.status || 'pending');
-      // Send to backend
-      await axios.post("http://localhost:8000/api/work-certificates", formData, {
+      const response = await axiosInstance.post("http://localhost:8000/api/work-certificates", formData, {
         headers: { "Content-Type": "multipart/form-data" },
         withCredentials: true,
       });
       setIsSubmitted(true);
+      setLastSubmittedCertificate(response.data.data);
+      setFileInfo(response.data.file_info);
+      setSuccessData(response.data.data); // Save the response for the success message
       toast({
-        title: language === 'ar' ? "تم بنجاح" : "Envoyé avec succès",
+        title: language === 'ar' ? "📤 تم الإرسال" : "📤 Envoyé à l'admin",
         description: language === 'ar'
-          ? "تم إنشاء شهادة العمل وتحميلها بنجاح."
-          : "L'attestation de travail a été créée et téléchargée avec succès.",
+          ? "تم إرسال الطلب إلى الإدارة بنجاح"
+          : "Les demandes ont été envoyées à l'administration avec succès",
         variant: "default",
         className: "bg-green-50 border-green-200",
       });
     } catch (error) {
-      console.error("Error:", error);
       toast({
-        title: "خطأ",
-        description: "حدث خطأ أثناء معالجة الطلب. يرجى المحاولة مرة أخرى.",
+        title: language === 'ar' ? "خطأ" : "Erreur",
+        description: language === 'ar' ? "حدث خطأ أثناء إرسال الطلب." : "Une erreur s'est produite lors de l'envoi de la demande.",
         variant: "destructive",
       });
     } finally {
@@ -181,28 +178,17 @@ const WorkCertificate = () => {
     }
   };
 
-  if (isSubmitted) {
+  if (successData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-          <CardContent className="pt-6 pb-6 md:pt-8 md:pb-8">
-            <div className="flex flex-col items-center text-center gap-4 md:gap-6">
-              <div className="h-16 w-16 md:h-20 md:w-20 rounded-full bg-gradient-to-r from-blue-600 to-green-600 flex items-center justify-center shadow-lg">
-                <CheckCircle className="h-8 w-8 md:h-10 md:w-10 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl md:text-2xl font-bold mb-2 md:mb-3 text-slate-800">{t('successTitle')}</h2>
-                <p className="text-slate-600 leading-relaxed mb-4 md:mb-6 text-sm md:text-base">{t('successDescWork')}</p>
-                <Button 
-                  onClick={() => setIsSubmitted(false)}
-                  className="border-blue-500 text-blue-600 hover:bg-blue-50 px-6 md:px-8 py-2 md:py-3 rounded-lg text-sm md:text-base"
-                >
-                  {t('newRequestBtn')}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <SuccessMessage
+          title={language === 'ar' ? 'تم إرسال الطلب بنجاح' : 'Demande envoyée avec succès'}
+          description={language === 'ar' ? 'تم حفظ طلبك وسيتم معالجته قريباً.' : 'Votre demande a été enregistrée et sera traitée prochainement.'}
+          primaryButtonText={language === 'ar' ? 'طلب جديد' : 'Nouvelle demande'}
+          onPrimary={() => window.location.reload()}
+          secondaryButtonText={language === 'ar' ? 'عرض جميع الطلبات' : 'Voir toutes les demandes'}
+          onSecondary={() => (window.location.href = '/all-requests')}
+        />
       </div>
     );
   }
@@ -218,6 +204,25 @@ const WorkCertificate = () => {
           <p className="text-gray-600 text-sm md:text-base">
             {language === 'ar' ? 'قم بملء البيانات المطلوبة لإصدار شهادة العمل' : 'Veuillez remplir les informations requises pour obtenir votre attestation de travail'}
           </p>
+        </div>
+        <div className="flex justify-start mt-4 mb-2">
+          <Button 
+            variant="outline"
+            onClick={() => {
+              toast({
+                title: language === 'ar' ? "📋 عرض جميع الطلبات" : "📋 Voir toutes les demandes",
+                description: language === 'ar' 
+                  ? "انتقال إلى صفحة جميع الطلبات"
+                  : "Navigation vers la page de toutes les demandes",
+                variant: "default",
+                className: "bg-blue-50 border-blue-200",
+              });
+              window.location.href = '/all-requests';
+            }}
+            className="border-blue-500 text-blue-600 hover:bg-blue-50 px-6 py-2 rounded-lg shadow-sm font-semibold text-base"
+          >
+            {language === 'ar' ? 'عرض جميع الطلبات' : 'Voir tous les demandes'}
+          </Button>
         </div>
 
         <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">

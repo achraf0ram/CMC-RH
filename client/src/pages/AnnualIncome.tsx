@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { axiosInstance } from '../components/Api/axios';
+import { SuccessMessage } from "@/components/SuccessMessage";
 
 const formSchema = z.object({
   fullName: z.string().min(3, { message: 'Please enter your full name.' }),
@@ -25,6 +27,7 @@ const AnnualIncome: React.FC = () => {
   const { user } = useAuth();
   const [showUrgentDialog, setShowUrgentDialog] = useState(false);
   const [pendingFormData, setPendingFormData] = useState<z.infer<typeof formSchema> | null>(null);
+  const [successData, setSuccessData] = useState<any>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -65,11 +68,13 @@ const AnnualIncome: React.FC = () => {
     formData.append('status', values.status || 'pending');
 
     try {
-      await axios.post('http://localhost:8000/api/annual-incomes', formData, {
+      const response = await axiosInstance.post('http://localhost:8000/api/annual-incomes', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        withCredentials: true,
       });
+      setSuccessData(response.data.data); // Save the response for the success message
       toast({
         title: language === 'ar' ? 'تم الإرسال بنجاح' : 'Demande envoyée',
         description: language === 'ar' ? 'تم إرسال طلبك بنجاح.' : 'Votre demande a été envoyée avec succès.',
@@ -88,6 +93,21 @@ const AnnualIncome: React.FC = () => {
     }
   };
 
+  if (successData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <SuccessMessage
+          title={language === 'ar' ? 'تم إرسال الطلب بنجاح' : 'Demande envoyée avec succès'}
+          description={language === 'ar' ? 'تم حفظ طلبك وسيتم معالجته قريباً.' : 'Votre demande a été enregistrée et sera traitée prochainement.'}
+          primaryButtonText={language === 'ar' ? 'طلب جديد' : 'Nouvelle demande'}
+          onPrimary={() => window.location.reload()}
+          secondaryButtonText={language === 'ar' ? 'عرض جميع الطلبات' : 'Voir toutes les demandes'}
+          onSecondary={() => (window.location.href = '/all-requests')}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 p-4">
       <div className="max-w-4xl mx-auto">
@@ -96,6 +116,25 @@ const AnnualIncome: React.FC = () => {
             {t('annualIncome')}
           </h1>
           <p className="text-gray-600 text-sm md:text-base">{language === 'ar' ? 'يرجى ملء النموذج ورفع المستند المطلوب.' : 'Veuillez remplir le formulaire et télécharger le document requis.'}</p>
+        </div>
+        <div className="flex justify-start mt-4 mb-2">
+          <Button 
+            variant="outline"
+            onClick={() => {
+              toast({
+                title: language === 'ar' ? "📋 عرض جميع الطلبات" : "📋 Voir toutes les demandes",
+                description: language === 'ar' 
+                  ? "انتقال إلى صفحة جميع الطلبات"
+                  : "Navigation vers la page de toutes les demandes",
+                variant: "default",
+                className: "bg-blue-50 border-blue-200",
+              });
+              window.location.href = '/all-requests';
+            }}
+            className="border-blue-500 text-blue-600 hover:bg-blue-50 px-6 py-2 rounded-lg shadow-sm font-semibold text-base"
+          >
+            {language === 'ar' ? 'عرض جميع الطلبات' : 'Voir tous les demandes'}
+          </Button>
         </div>
         <div className="shadow-xl border-0 bg-white/80 backdrop-blur-sm rounded-lg overflow-hidden">
           <div className="bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-t-lg py-4 px-6">

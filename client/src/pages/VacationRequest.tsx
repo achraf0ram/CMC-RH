@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
 import { ar, fr } from "date-fns/locale";
-import { CalendarIcon, FileImage, CheckCircle } from "lucide-react";
+import { CalendarIcon, FileImage, CheckCircle, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +40,9 @@ import axios from "axios";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { axiosInstance } from '../components/Api/axios';
+import { createEcho } from '../lib/echo';
+import { SuccessMessage } from "@/components/SuccessMessage";
 
 // Import Arabic reshaping libraries
 import * as reshaper from "arabic-persian-reshaper";
@@ -157,6 +160,9 @@ const VacationRequest = () => {
   const { user } = useAuth();
   const [showUrgentDialog, setShowUrgentDialog] = useState(false);
   const [pendingFormData, setPendingFormData] = useState<FormData|null>(null);
+  const [lastSubmittedRequest, setLastSubmittedRequest] = useState<any>(null);
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
+  const [successData, setSuccessData] = useState<any>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -195,6 +201,20 @@ const VacationRequest = () => {
     if (user && user.name) {
       form.setValue('fullName', user.name);
     }
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    const echo = createEcho(token);
+    if (!echo) return;
+    const channel = echo.channel('requests');
+    channel.listen('NewRequest', (data: any) => {
+      setRequests((prev: any[]) => [data.requestData, ...prev]);
+    });
+    channel.listen('RequestStatusUpdated', (data: any) => {
+      setRequests((prev: any[]) => prev.map(r => r.id === data.requestId ? { ...r, status: data.newStatus } : r));
+    });
+    return () => {
+      echo.leave('requests');
+    };
   }, [user]);
 
   const handleSignatureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -262,25 +282,34 @@ const VacationRequest = () => {
       formData.append('pdf', pdfFile);
       formData.append('status', values.status || 'pending');
       // 4. إرسال الطلب مع الملف
-      await axios.post("http://localhost:8000/api/vacation-requests", formData, {
+      const response = await axiosInstance.post("http://localhost:8000/api/vacation-requests", formData, {
         withCredentials: true,
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       // 5. تحميل PDF محلياً للمستخدم
-      savePDFLocally(pdfBlob, pdfFile.name);
     setIsSubmitted(true);
+      setLastSubmittedRequest(response.data.data || values);
+      setPdfBlob(pdfBlob);
+      setSuccessData(response.data.data); // Save the response for the success message
         toast({
-          title: language === 'ar' ? "تم الإرسال بنجاح" : "Envoyé avec succès",
-          description: language === 'ar' ? "تم حفظ طلب الإجازة و تحميله بنجاح" : "Votre demande de congé a été enregistrée et téléchargée avec succès.",
+        title: language === 'ar' ? "📤 تم الإرسال" : "📤 Envoyé à l'admin",
+        description: language === 'ar'
+          ? "تم إرسال الطلب إلى الإدارة بنجاح"
+          : "Les demandes ont été envoyées à l'administration avec succès",
           variant: "default",
           className: "bg-green-50 border-green-200",
         });
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
-        console.log('Validation error:', error.response.data);
         toast({
-          title: "Validation Error",
-          description: JSON.stringify(error.response.data.errors),
+          title: language === 'ar' ? "خطأ في التحقق" : "Erreur de validation",
+          description: language === 'ar' ? "يرجى مراجعة الحقول المدخلة" : "Veuillez vérifier les champs saisis.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: language === 'ar' ? "خطأ" : "Erreur",
+          description: language === 'ar' ? "حدث خطأ أثناء إرسال الطلب." : "Une erreur s'est produite lors de l'envoi de la demande.",
             variant: "destructive",
         });
       }
@@ -300,15 +329,11 @@ const VacationRequest = () => {
         doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
         doc.addFont("Amiri-Bold.ttf", "Amiri", "bold");
         
-        console.log("jsPDF document created. Attempting to add logo.");
-
         // إضافة الشعار إن وجد
         if (logoPath) {
-          console.log("Logo path found:", logoPath);
           const img = new Image();
           img.src = logoPath;
           img.onload = () => {
-            console.log("Logo image loaded successfully.");
             doc.addImage(img, "PNG", 10, 4, 66, 20);
             addContent(doc, data, () => {
               resolve(doc.output('blob'));
@@ -320,7 +345,6 @@ const VacationRequest = () => {
             });
           };
         } else {
-          console.log("No logo path specified. Adding content directly.");
           addContent(doc, data, () => {
             resolve(doc.output('blob'));
           });
@@ -347,7 +371,6 @@ const VacationRequest = () => {
 
   // Helper function to add content after logo loading
   const addContent = (doc: jsPDF, data: FormData, resolve: () => void) => {
-    console.log("Adding PDF content.");
     
     // رأس الصفحة
     doc.setFontSize(12);
@@ -612,7 +635,7 @@ if (data.interim || data.arabicInterim) {
   const arabicDirectorWidth = doc.getTextWidth(arabicDirector);
   doc.line(150, signatureY + 5 + 1, 150 + arabicDirectorWidth, signatureY + 5 + 1); // Adjusted Y position for line
 
-  console.log("Signature preview value before adding image:", signaturePreview ? "Has data" : "No data", signaturePreview ? `Data URL starts with: ${signaturePreview.substring(0, 30)}` : "");
+
 
   if (signaturePreview) {
     const imgType = signaturePreview.startsWith("data:image/png") ? "PNG" : "JPEG";
@@ -706,27 +729,67 @@ for (let i = 0; i < arabicNotes.length; i++) {
 // تحميل PDF
 
     // حفظ الملف
-    if (data.fullName) {
-      doc.save(`demande_conge_${data.fullName}.pdf`);
-    } else {
-      doc.save(`demande_conge.pdf`);
-    }
-    console.log("PDF saved.");
+    // لا تحميل تلقائي للملف بعد الإرسال
     resolve();
   };
 
+  if (successData) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100">
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent mb-2">
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <SuccessMessage
+          title={language === 'ar' ? 'تم إرسال الطلب بنجاح' : 'Demande envoyée avec succès'}
+          description={language === 'ar' ? 'تم حفظ طلبك وسيتم معالجته قريباً.' : 'Votre demande a été enregistrée et sera traitée prochainement.'}
+          primaryButtonText={language === 'ar' ? 'طلب جديد' : 'Nouvelle demande'}
+          onPrimary={() => {
+            setIsSubmitted(false);
+            setShowCustomLeaveType(false);
+            form.reset();
+          }}
+          secondaryButtonText={language === 'ar' ? 'عرض جميع الطلبات' : 'Voir tous les demandes'}
+          onSecondary={() => {
+            toast({
+              title: language === 'ar' ? "📋 عرض جميع الطلبات" : "📋 Voir toutes les demandes",
+              description: language === 'ar' ? "انتقال إلى صفحة جميع الطلبات" : "Navigation vers la page de toutes les demandes",
+              variant: "default",
+              className: "bg-green-50 border-green-200",
+            });
+            window.location.href = '/all-requests';
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 p-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent mb-2">
             {language === 'ar' ? 'طلب إجازة' : 'Demande de Congé'}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-sm md:text-base">
             {language === 'ar' ? 'يرجى ملء جميع الحقول المطلوبة' : 'Veuillez remplir tous les champs requis'}
           </p>
         </div>
-
+        {/* Move the button here, just above the form */}
+        <div className="flex justify-start mb-2">
+          <Button
+            variant="outline"
+            className="border-blue-500 text-blue-600 hover:bg-blue-50 px-6 py-2 rounded-lg shadow-sm font-semibold text-base"
+            onClick={() => {
+              toast({
+                title: language === 'ar' ? "📋 عرض جميع الطلبات" : "📋 Voir toutes les demandes",
+                description: language === 'ar' ? "انتقال إلى صفحة جميع الطلبات" : "Navigation vers la page de toutes les demandes",
+                variant: "default",
+                className: "bg-blue-50 border-blue-200",
+              });
+              window.location.href = '/all-requests';
+            }}
+          >
+            {language === 'ar' ? 'عرض جميع الطلبات' : 'Voir tous les demandes'}
+          </Button>
+        </div>
         <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm rounded-xl">
           <CardHeader className="bg-gradient-to-r from-blue-600 to-green-600 text-white text-center flex flex-col items-center justify-center rounded-t-xl">
             <CardTitle className="text-xl font-semibold text-center">
@@ -1425,25 +1488,90 @@ for (let i = 0; i < arabicNotes.length; i++) {
                 </form>
               </Form>
             ) : (
-              <div className="text-center py-12">
+              <div className="flex flex-col items-center justify-center py-12">
                 <CheckCircle className="mx-auto h-16 w-16 text-green-500 mb-4" />
                 <h3 className="text-2xl font-bold text-gray-800 mb-2">
-                  {t('successTitle')}
+                  {language === 'ar' ? 'تم الإرسال بنجاح' : 'Envoyé avec succès'}
                 </h3>
                 <p className="text-gray-600 mb-6">
-                  {t('successDescVacation')}
+                  {language === 'ar'
+                    ? 'تم حفظ طلب الإجازة بنجاح في قاعدة البيانات. يمكنك الآن تحميل PDF أو إنشاء طلب جديد.'
+                    : "La demande de congé a été sauvegardée avec succès dans la base de données. Vous pouvez maintenant télécharger le PDF ou créer une nouvelle demande."}
                 </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6 w-full max-w-md">
+                  <div className="mb-2 font-semibold text-blue-700 text-lg">
+                    {language === 'ar' ? 'تفاصيل الطلب المحفوظ:' : 'Détails de la demande sauvegardée:'}
+                  </div>
+                  <div className="flex flex-col gap-1 text-sm">
+                    <div><span className="font-semibold">{language === 'ar' ? 'الاسم:' : 'Nom:'}</span> {lastSubmittedRequest?.full_name || lastSubmittedRequest?.fullName}</div>
+                    <div><span className="font-semibold">{language === 'ar' ? 'الرقم المالي:' : 'Matricule:'}</span> {lastSubmittedRequest?.matricule}</div>
+                    <div><span className="font-semibold">{language === 'ar' ? 'الحالة:' : 'Statut:'}</span> <span className="inline-block px-2 py-1 rounded bg-yellow-100 text-yellow-800">{language === 'ar' ? 'قيد الانتظار' : 'En attente'}</span></div>
+                    <div><span className="font-semibold">{language === 'ar' ? 'رقم الطلب:' : 'Numéro de demande:'}</span> #{lastSubmittedRequest?.id || '—'}</div>
+                    <div className="mt-2 font-semibold text-blue-700">{language === 'ar' ? 'معلومات PDF:' : 'Informations PDF:'}</div>
+                    <div><span className="font-semibold">{language === 'ar' ? 'الحجم:' : 'Taille:'}</span> {pdfBlob ? (pdfBlob.size / 1024 / 1024).toFixed(2) + ' MB' : '—'}</div>
+                    <div><span className="font-semibold">{language === 'ar' ? 'تاريخ الإنشاء:' : 'Date de création:'}</span> {new Date().toLocaleString(language === 'ar' ? 'ar-MA' : 'fr-FR')}</div>
+                  </div>
+                </div>
                 <Button 
+                  className="w-full max-w-xs mb-3 bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => {
+                    if (pdfBlob) {
+                      const url = window.URL.createObjectURL(pdfBlob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `demande_conge_${lastSubmittedRequest?.full_name || lastSubmittedRequest?.fullName || 'user'}.pdf`;
+                      document.body.appendChild(a);
+                      a.click();
+                      setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                      }, 100);
+                    }
+                  }}
+                >
+                  <Download className="inline-block mr-2" />
+                  {language === 'ar' ? 'تحميل PDF' : 'Télécharger PDF'}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full max-w-xs mb-3 border-blue-500 text-blue-600 hover:bg-blue-50"
                   onClick={() => {
                     setIsSubmitted(false);
-                    form.reset();
                     setShowCustomLeaveType(false);
+                    form.reset();
                   }}
-                  variant="outline"
-                  className="border-blue-500 text-blue-600 hover:bg-blue-50"
                 >
-                  {t('newRequestBtn')}
+                  {language === 'ar' ? 'طلب جديد' : 'Nouvelle demande'}
                 </Button>
+                <Button
+                  variant="secondary"
+                  className="w-full max-w-xs bg-blue-100 text-blue-700 border border-blue-200"
+                  onClick={() => {
+                    toast({
+                      title: language === 'ar' ? "📋 عرض التاريخ" : "📋 Voir l'historique",
+                      description: language === 'ar' ? "انتقال إلى صفحة تاريخ الطلبات" : "Navigation vers la page d'historique des demandes",
+                      variant: "default",
+                      className: "bg-green-50 border-green-200",
+                    });
+                    window.location.href = '/vacation-requests/history';
+                  }}
+                >
+                  {language === 'ar' ? 'عرض جميع الطلبات' : 'Voir tous les demandes'}
+                </Button>
+                {successData?.pdf_url && (
+                  <a
+                    href={
+                      successData.pdf_url.startsWith('/storage/requests/')
+                        ? successData.pdf_url
+                        : '/storage/requests/' + successData.pdf_url.replace(/^.*[\\/]/, '')
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-2 px-6 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
+                  >
+                    {language === 'ar' ? 'تحميل PDF' : 'Télécharger PDF'}
+                  </a>
+                )}
               </div>
             )}
           </CardContent>

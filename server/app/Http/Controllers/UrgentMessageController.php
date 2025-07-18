@@ -6,13 +6,17 @@ use App\Models\UrgentMessage;
 use App\Models\UserNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Models\ChatMessage;
 
 class UrgentMessageController extends Controller
 {
     // جلب جميع الرسائل العاجلة (للأدمن)
     public function index()
     {
-        $messages = UrgentMessage::with('user')->orderBy('created_at', 'desc')->get();
+        $messages = ChatMessage::where('is_urgent', true)
+            ->where('is_read', false)
+            ->orderBy('created_at', 'desc')
+            ->get();
         return response()->json($messages);
     }
 
@@ -70,5 +74,12 @@ class UrgentMessageController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
         return response()->json($messages);
+    }
+
+    public function markAllRead(Request $request)
+    {
+        // تحديث كل الرسائل العاجلة غير المقروءة إلى مقروءة
+        \App\Models\UrgentMessage::where('is_read', false)->update(['is_read' => true]);
+        return response()->json(['success' => true]);
     }
 } 

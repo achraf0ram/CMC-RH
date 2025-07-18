@@ -2,20 +2,23 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle } from "lucide-react";
-import { useLanguage } from "@/contexts/LanguageContext";
 
 interface SuccessMessageProps {
   title: string;
   description: string;
-  buttonText: string;
-  onReset: () => void;
+  primaryButtonText: string;
+  onPrimary: () => void;
+  secondaryButtonText?: string;
+  onSecondary?: () => void;
 }
 
 export const SuccessMessage = ({
   title,
   description,
-  buttonText,
-  onReset
+  primaryButtonText,
+  onPrimary,
+  secondaryButtonText,
+  onSecondary,
 }: SuccessMessageProps) => {
   return (
     <Card className="border-green-200 bg-green-50">
@@ -27,9 +30,14 @@ export const SuccessMessage = ({
           <div>
             <h2 className="text-xl font-semibold mb-2">{title}</h2>
             <p className="text-muted-foreground">{description}</p>
-            <Button className="mt-4" onClick={onReset}>
-              {buttonText}
-            </Button>
+            <div className="flex flex-col md:flex-row gap-3 mt-4 justify-center">
+              <Button onClick={onPrimary}>{primaryButtonText}</Button>
+              {secondaryButtonText && onSecondary && (
+                <Button variant="outline" onClick={onSecondary}>
+                  {secondaryButtonText}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>

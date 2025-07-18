@@ -10,6 +10,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
+use App\Models\AdminNotification;
 
 class RegisteredUserController extends Controller
 {
@@ -18,29 +19,60 @@ class RegisteredUserController extends Controller
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function store(Request $request): Response
+    public function store(Request $request)
     {
-        $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
-            'phone' => ['required', 'string', 'max:20'],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        ]);
+        \Log::info('Register request', $request->all());
+        try {
+            $request->validate([
+                'name' => ['required', 'string', 'max:255'],
+                'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+                'phone' => ['required', 'string', 'max:20'],
+                'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            ]);
 
-        $isAdmin = $request->email === 'cmc.rh.ram@gmail.com';
+            $isAdmin = $request->email === 'cmc.rh.ram@gmail.com';
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'password' => Hash::make($request->password),
-            'is_admin' => $isAdmin,
-        ]);
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'password' => Hash::make($request->password),
+                'is_admin' => $isAdmin,
+            ]);
 
-        event(new Registered($user));
+            // إشعار أدمين
+            AdminNotification::create([
+                'title' => 'تسجيل مستخدم جديد',
+                'title_fr' => 'Nouvel utilisateur',
+                'body' => $request->name . ' قام بإنشاء حساب جديد',
+                'body_fr' => $request->name . ' a créé un nouveau compte',
+                'type' => 'newUser',
+                'is_read' => false,
+                'data' => json_encode(['user_id' => $user->id]),
+            ]);
+            // إشعار لحظي للأدمين
+            event(new \App\Events\NewNotification([
+                'id' => $user->id,
+                'title' => 'تسجيل مستخدم جديد',
+                'title_fr' => 'Nouvel utilisateur',
+                'type' => 'newUser',
+                'user_id' => $user->id,
+            ]));
 
-        Auth::login($user);
+            event(new Registered($user));
 
-        return response()->noContent();
+            Auth::login($user);
+
+            return response()->json([
+                'message' => 'تم التسجيل بنجاح',
+                'user' => $user
+            ], 201);
+        } catch (\Exception $e) {
+            \Log::error('Register error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'message' => 'حدث خطأ أثناء التسجيل',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 } 

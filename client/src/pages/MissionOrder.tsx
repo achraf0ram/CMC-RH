@@ -20,16 +20,17 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { CalendarIcon, CheckCircle } from "lucide-react";
+import { CalendarIcon, CheckCircle, Download } from "lucide-react";
 import { format } from "date-fns";
 import { ar, fr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import jsPDF from "jspdf";
 import { useToast } from "@/hooks/use-toast";
-import axios from "axios";
+import { axiosInstance } from '../components/Api/axios';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { SuccessMessage } from "@/components/SuccessMessage";
 
 // Import the Arabic font data
 import { AmiriFont } from "../fonts/AmiriFont";
@@ -37,11 +38,14 @@ import { AmiriFont } from "../fonts/AmiriFont";
 const MissionOrder = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const { language, t } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
   const [showUrgentDialog, setShowUrgentDialog] = useState(false);
   const [pendingFormData, setPendingFormData] = useState<z.infer<typeof formSchema> | null>(null);
+  const [lastSubmittedOrder, setLastSubmittedOrder] = useState<any>(null);
+  const [fileInfo, setFileInfo] = useState<any>(null);
 
   // تعريف الـ Schema للتحقق من صحة البيانات
   const formSchema = z.object({
@@ -86,36 +90,50 @@ const MissionOrder = () => {
   useEffect(() => {
     if (user && user.name) {
       form.setValue('monsieurMadame', user.name);
+      // تم حذف رسالة الترحيب هنا
     }
-  }, [user]);
+  }, [user, language]);
 
   // دالة للإرسال
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsGenerating(true);
     try {
-      // Step 1: Send data to the backend
-      const response = await axios.post('http://localhost:8000/api/mission-orders', { ...values, type: 'missionOrder' }, { withCredentials: true });
-      console.log('Backend response:', response.data);
+      // Step 1: Generate PDF and convert to base64
+      const pdfBase64 = await generatePDF(values);
+      
+      // Step 2: Send data with PDF to the backend
+      const response = await axiosInstance.post('mission-orders', { 
+        ...values, 
+        type: 'missionOrder',
+        pdf_base64: pdfBase64 
+      });
 
-      // Step 2: Generate PDF
-      await generatePDF(values);
+
+      // حفظ بيانات الطلب المقدم للاستخدام لاحقاً
+      setLastSubmittedOrder(response.data.data);
+      setFileInfo(response.data.file_info);
+
       setIsSubmitted(true);
       
       // Show success toast
       toast({
-        title: language === 'ar' ? "تم بنجاح" : "Envoyé avec succès",
+        title: language === 'ar' ? "📤 تم الإرسال" : "📤 Envoyé à l'admin",
         description: language === 'ar'
-          ? "تم إنشاء أمر المهمة وتحميله بنجاح."
-          : "L'ordre de mission a été créé et téléchargé avec succès.",
+          ? "تم إرسال الطلب إلى الإدارة بنجاح"
+          : "Les demandes ont été envoyées à l'administration avec succès",
         variant: "default",
         className: "bg-green-50 border-green-200",
       });
+      // تم حذف رسالة الحفظ (Sauvegardé)
     } catch (error) {
       console.error("Error submitting mission order:", error);
       toast({
-        title: "خطأ",
-        description: "حدث خطأ أثناء معالجة الطلب. يرجى المحاولة مرة أخرى.",
+        title: language === 'ar' ? "خطأ أثناء إرسال الطلب" : "Erreur lors de l'envoi",
+        description: language === 'ar'
+          ? "حدث خطأ غير متوقع أثناء معالجة طلبك. يرجى المحاولة لاحقًا أو التواصل مع الدعم إذا استمرت المشكلة."
+          : "Une erreur inattendue s'est produite lors du traitement de votre demande. Veuillez réessayer plus tard ou contacter le support si le problème persiste.",
         variant: "destructive",
+        className: "bg-red-50 border-red-200 text-red-800 font-semibold",
       });
     } finally {
       setIsGenerating(false);
@@ -134,8 +152,8 @@ const MissionOrder = () => {
     setPendingFormData(null);
   };
 
-  // دالة لتوليد PDF
-  const generatePDF = async (data: z.infer<typeof formSchema>) => {
+  // دالة لتوليد PDF وتحويله إلى base64
+  const generatePDF = async (data: z.infer<typeof formSchema>): Promise<string> => {
     const doc = new jsPDF('p', 'mm', 'a4');
     const currentDate = format(new Date(), "EEEE d MMMM yyyy", { locale: fr });
 
@@ -267,35 +285,102 @@ doc.text(format(data.endDate, "yyyy-MM-dd"), col1X + 45, startY + rowHeight * 5.
     const noteY = visaY + visaSectionHeight + 5; // Adjusted vertical position
     doc.text("NB : Le visa de départ est obligatoire pour les missions au-delà d'une journée.", 30, noteY);
 
-    // حفظ الـ PDF
-    doc.save(`ordre_mission_${data.destination.replace(/\s+/g, '_')}.pdf`);
+    // تحويل PDF إلى base64 بدلاً من حفظه
+    const pdfOutput = doc.output('datauristring');
+    const base64Data = pdfOutput.split(',')[1]; // إزالة "data:application/pdf;base64," من البداية
+    
+    return base64Data;
+  };
+
+  // دالة لتحميل PDF المحفوظ
+  const downloadSavedPDF = async () => {
+    if (!lastSubmittedOrder?.id) {
+      toast({
+        title: "خطأ",
+        description: "لا يوجد ملف PDF محفوظ للتحميل",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      const response = await axiosInstance.get(`/download-pdf-db/${lastSubmittedOrder.id}`, {
+        responseType: 'blob'
+      });
+      
+      // إنشاء رابط تحميل
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      // اسم الملف: ORDRE_DE_MISSION + اسم الشخص
+      const fullName = lastSubmittedOrder?.monsieurMadame || lastSubmittedOrder?.monsieur_madame || user?.name || 'mission';
+      link.href = url;
+      link.setAttribute('download', `ORDRE_DE_MISSION ${fullName}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: language === 'ar' ? "تم التحميل" : "Téléchargé",
+        description: language === 'ar' ? "تم تحميل PDF بنجاح" : "PDF téléchargé avec succès",
+        variant: "default",
+        className: "bg-blue-50 border-blue-200",
+      });
+      
+      // إشعار نجاح إضافي
+      toast({
+        title: language === 'ar' ? "✅ تم بنجاح" : "✅ Succès",
+        description: language === 'ar' ? "تم حفظ وتحميل PDF بنجاح" : "PDF sauvegardé et téléchargé avec succès",
+        variant: "default",
+        className: "bg-green-50 border-green-200",
+      });
+      
+      // رسالة تأكيد إضافية
+      toast({
+        title: language === 'ar' ? "📄 تم التحميل" : "📄 Téléchargé",
+        description: language === 'ar' 
+          ? `تم تحميل PDF من قاعدة البيانات بنجاح`
+          : `PDF téléchargé depuis la base de données avec succès`,
+        variant: "default",
+        className: "bg-blue-50 border-blue-200",
+      });
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      toast({
+        title: "خطأ",
+        description: "حدث خطأ أثناء تحميل PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-          <CardContent className="pt-6 pb-6 md:pt-8 md:pb-8">
-            <div className="flex flex-col items-center text-center gap-4 md:gap-6">
-              <div className="h-16 w-16 md:h-20 md:w-20 rounded-full bg-gradient-to-r from-blue-600 to-green-600 flex items-center justify-center shadow-lg">
-                <CheckCircle className="h-8 w-8 md:h-10 md:w-10 text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl md:text-2xl font-bold mb-2 md:mb-3 text-slate-800">{t('successTitle')}</h2>
-                <p className="text-slate-600 leading-relaxed mb-4 md:mb-6 text-sm md:text-base">{t('successDescMission')}</p>
-                <Button 
-                  onClick={() => {
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <SuccessMessage
+          title={language === 'ar' ? 'تم إرسال الطلب بنجاح' : 'Demande envoyée avec succès'}
+          description={language === 'ar' ? 'تم حفظ أمر المهمة وسيتم معالجته قريباً.' : 'Votre demande a été enregistrée et sera traitée prochainement.'}
+          primaryButtonText={language === 'ar' ? 'طلب جديد' : 'Nouvelle demande'}
+          onPrimary={() => {
                     setIsSubmitted(false);
                     form.reset();
-                  }}
-                  className="border-blue-500 text-blue-600 hover:bg-blue-50 px-6 md:px-8 py-2 md:py-3 rounded-lg text-sm md:text-base"
-                >
-                  {t('newRequestBtn')}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                    setLastSubmittedOrder(null);
+                    setFileInfo(null);
+          }}
+          secondaryButtonText={language === 'ar' ? 'عرض جميع الطلبات' : 'Voir tous les demandes'}
+          onSecondary={() => {
+                      toast({
+              title: language === 'ar' ? "📋 عرض جميع الطلبات" : "📋 Voir toutes les demandes",
+              description: language === 'ar' ? "انتقال إلى صفحة جميع الطلبات" : "Navigation vers la page de toutes les demandes",
+                        variant: "default",
+                        className: "bg-green-50 border-green-200",
+                      });
+            window.location.href = '/all-requests';
+                    }}
+        />
       </div>
     );
   }
@@ -311,6 +396,26 @@ doc.text(format(data.endDate, "yyyy-MM-dd"), col1X + 45, startY + rowHeight * 5.
           <p className="text-gray-600 text-sm md:text-base">
             {language === 'ar' ? 'قم بملء البيانات المطلوبة لإصدار أمر المهمة' : 'Veuillez remplir les informations requises pour obtenir votre ordre de mission'}
           </p>
+        </div>
+        {/* Move the button here, just above the form */}
+        <div className="flex justify-start mb-2">
+          <Button 
+            variant="outline"
+            onClick={() => {
+              toast({
+                title: language === 'ar' ? "📋 عرض جميع الطلبات" : "📋 Voir toutes les demandes",
+                description: language === 'ar' 
+                  ? "انتقال إلى صفحة جميع الطلبات"
+                  : "Navigation vers la page de toutes les demandes",
+                variant: "default",
+                className: "bg-blue-50 border-blue-200",
+              });
+              window.location.href = '/all-requests';
+            }}
+            className="border-blue-500 text-blue-600 hover:bg-blue-50 px-6 py-2 rounded-lg shadow-sm font-semibold text-base"
+          >
+            {language === 'ar' ? 'عرض جميع الطلبات' : 'Voir tous les demandes'}
+          </Button>
         </div>
 
         <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
@@ -586,9 +691,14 @@ doc.text(format(data.endDate, "yyyy-MM-dd"), col1X + 45, startY + rowHeight * 5.
                     disabled={isGenerating}
                     className="w-full md:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
                   >
-                    {isGenerating ? 
-                      (language === 'ar' ? "جاري المعالجة..." : "Traitement en cours...") 
-                      : (language === 'ar' ? "إرسال وتحميل PDF" : "Envoyer et télécharger le PDF")}
+                    {isGenerating ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        {language === 'ar' ? "جاري الحفظ في قاعدة البيانات..." : "Sauvegarde en cours..."}
+                      </div>
+                    ) : (
+                      language === 'ar' ? "إرسال وحفظ PDF" : "Envoyer et sauvegarder PDF"
+                    )}
                   </Button>
                 </div>
               </form>

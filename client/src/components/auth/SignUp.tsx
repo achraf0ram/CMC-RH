@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, UserPlus } from "lucide-react";
+import { Loader2, UserPlus, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export const SignUp = () => {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, login, user } = useAuth();
   const { toast } = useToast();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -18,6 +18,9 @@ export const SignUp = () => {
   const [password, setPassword] = useState("");
   const [password_confirmation, setPasswordConfirmation] = useState("");
   const [phone, setPhone] = useState("");
+  const [shouldRedirect, setShouldRedirect] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +34,11 @@ export const SignUp = () => {
           title: "Compte créé avec succès",
           description: "Bienvenue sur la plateforme CMC",
         });
-        navigate("/");
+        // تسجيل الدخول تلقائياً بعد التسجيل
+        const loginResult = await login(email, password);
+        if (loginResult.success) {
+          navigate("/settings");
+        }
       } else {
         toast({
           variant: "destructive",
@@ -53,6 +60,12 @@ export const SignUp = () => {
       setIsLoading(false);
     }
   };
+
+  React.useEffect(() => {
+    if (shouldRedirect && user) {
+      navigate("/settings");
+    }
+  }, [shouldRedirect, user, navigate]);
 
   return (
     <div
@@ -82,11 +95,21 @@ export const SignUp = () => {
               </div>
               <div className="space-y-1">
                 <Label htmlFor="password" className="text-left block">Mot de passe</Label>
-                <Input id="password" type="password" placeholder="Entrez votre mot de passe" value={password} onChange={(e) => setPassword(e.target.value)} required dir="ltr" />
+                <div className="relative">
+                  <Input id="password" type={showPassword ? "text" : "password"} placeholder="Entrez votre mot de passe" value={password} onChange={(e) => setPassword(e.target.value)} required dir="ltr" className="pr-10" />
+                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 focus:outline-none">
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
               <div className="space-y-1">
                 <Label htmlFor="password_confirmation" className="text-left block">Confirmer le mot de passe</Label>
-                <Input id="password_confirmation" type="password" placeholder="Confirmez votre mot de passe" value={password_confirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} required dir="ltr" />
+                <div className="relative">
+                  <Input id="password_confirmation" type={showPasswordConfirmation ? "text" : "password"} placeholder="Confirmez votre mot de passe" value={password_confirmation} onChange={(e) => setPasswordConfirmation(e.target.value)} required dir="ltr" className="pr-10" />
+                  <button type="button" onClick={() => setShowPasswordConfirmation(v => !v)} className="absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 focus:outline-none">
+                    {showPasswordConfirmation ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
               </div>
               <Button
                 type="submit"

@@ -9,7 +9,9 @@ import { MainLayout } from "./layouts/MainLayout";
 import Index from "./pages/Index";
 import WorkCertificate from "./pages/WorkCertificate";
 import MissionOrder from "./pages/MissionOrder";
+import MissionOrderHistory from "./pages/MissionOrderHistory";
 import VacationRequest from "./pages/VacationRequest";
+import VacationRequestHistory from "./pages/VacationRequestHistory";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import SignInPage from "./pages/SignIn";
@@ -21,6 +23,7 @@ import SalaryDomiciliation from "./pages/SalaryDomiciliation";
 import AnnualIncome from "./pages/AnnualIncome";
 import AdminDashboard from "./pages/AdminDashboard";
 import FileViewer from "./pages/FileViewer";
+import AllRequestsPage from "./pages/AllRequestsPage";
 
 
 const queryClient = new QueryClient();
@@ -34,7 +37,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!isAuthenticated) {
-    console.log("User is not authenticated");
+    
     return <Navigate to="/login" replace />;
   }
 
@@ -138,8 +141,16 @@ const App = () => (
                   element={<MissionOrder />}
                 />
                 <Route
+                  path='mission-orders/history'
+                  element={<MissionOrderHistory />}
+                />
+                <Route
                   path='vacation-request'
                   element={<VacationRequest />}
+                />
+                <Route
+                  path='vacation-requests/history'
+                  element={<VacationRequestHistory />}
                 />
                 <Route
                   path='settings'
@@ -156,6 +167,10 @@ const App = () => (
                 <Route
                   path='annual-income'
                   element={<AnnualIncome />}
+                />
+                <Route
+                  path='all-requests'
+                  element={<AllRequestsPage />}
                 />
               </Route>
 

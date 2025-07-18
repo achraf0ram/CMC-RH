@@ -4,7 +4,7 @@ import { BarChart3, Calendar, CheckCircle, FileText, Banknote } from "lucide-rea
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
-import axiosInstance from '@/components/Api/axios';
+import { axiosInstance } from './Api/axios';
 import { useToast } from '@/components/ui/use-toast';
 
 export const Dashboard = () => {
@@ -22,29 +22,29 @@ export const Dashboard = () => {
   const [shownReplies, setShownReplies] = useState<string[]>([]);
 
   useEffect(() => {
-    axios.get("http://localhost:8000/api/vacation-requests/pending/count")
+    axiosInstance.get("/vacation-requests/pending/count")
       .then(res => setPendingCount(res.data.count))
       .catch(() => setPendingCount(0));
-    axios.get("http://localhost:8000/api/vacation-requests/approved/count")
+    axiosInstance.get("/vacation-requests/approved/count")
       .then(res => setApprovedCount(res.data.count))
       .catch(() => setApprovedCount(0));
-    axios.get("http://localhost:8000/api/vacation-requests/vacation-days/sum")
+    axiosInstance.get("/vacation-requests/vacation-days/sum")
       .then(res => setVacationDays(res.data.days))
       .catch(() => setVacationDays(0));
-    axios.get("http://localhost:8000/api/vacation-requests/user/count", { withCredentials: true })
+    axiosInstance.get("/vacation-requests/user/count", { withCredentials: true })
       .then(res => setVacationCount(res.data.count))
       .catch(() => setVacationCount(0));
-    axios.get("http://localhost:8000/api/mission-orders/user/count", { withCredentials: true })
+    axiosInstance.get("/mission-orders/user/count", { withCredentials: true })
       .then(res => setMissionCount(res.data.count))
       .catch(() => setMissionCount(0));
-    axios.get("http://localhost:8000/api/work-certificates/user/count", { withCredentials: true })
+    axiosInstance.get("/work-certificates/user/count", { withCredentials: true })
       .then(res => setCertificateCount(res.data.count))
       .catch(() => setCertificateCount(0));
-    axios.get('/api/vacation-requests/user', { withCredentials: true })
+    axiosInstance.get('/vacation-requests/user', { withCredentials: true })
       .then(res => setVacationRequests(res.data));
-    axios.get('/api/mission-orders/user', { withCredentials: true })
+    axiosInstance.get('/mission-orders/user', { withCredentials: true })
       .then(res => setMissionOrders(res.data));
-    axios.get('/api/work-certificates/user', { withCredentials: true })
+    axiosInstance.get('/work-certificates/user', { withCredentials: true })
       .then(res => setWorkCertificates(res.data));
 
     // جلب الرسائل العاجلة الخاصة بالمستخدم

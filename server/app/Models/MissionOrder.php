@@ -25,5 +25,7 @@ class MissionOrder extends Model
         'full_name',
         'type',
         'status',
+        'file_path',
+        'pdf_blob',
     ];
 }

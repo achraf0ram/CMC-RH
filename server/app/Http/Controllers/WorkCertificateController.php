@@ -6,15 +6,13 @@ use App\Models\WorkCertificate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\VacationRequest;
+use App\Models\AdminNotification;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class WorkCertificateController extends Controller
 {
     public function store(Request $request)
     {
-        \Log::info('WorkCertificateController@store called');
-        \Log::info('All request data:', $request->all());
-        \Log::info('All files in request:', $request->allFiles());
-
         $validated = $request->validate([
             'fullName' => 'required|string|min:3',
             'matricule' => 'required|string',
@@ -23,29 +21,27 @@ class WorkCertificateController extends Controller
             'function' => 'nullable|string',
             'purpose' => 'required|string|min:5',
             'additionalInfo' => 'nullable|string',
-            'pdf' => 'required',
+            'pdf' => 'required_without:pdf_base64|file|mimes:pdf',
+            'pdf_base64' => 'required_without:pdf|nullable|string',
         ]);
 
         $filePath = null;
+
+        // إذا كان الملف مرفوعًا مباشرة
         if ($request->hasFile('pdf')) {
-            \Log::info('PDF file received as file upload.');
             $file = $request->file('pdf');
-            $fileName = 'requests/' . uniqid('workcert_') . '.' . $file->getClientOriginalExtension();
-            $file->storeAs('public/requests', basename($fileName));
-            $filePath = 'requests/' . basename($fileName);
-            \Log::info('PDF file saved at: ' . $filePath);
-        } elseif ($request->pdf && is_string($request->pdf)) {
-            \Log::info('PDF file received as raw string.');
-            $pdfData = $request->pdf;
-            if (base64_decode($pdfData, true) !== false) {
-                $pdfData = base64_decode($pdfData);
-            }
-            $fileName = 'requests/' . uniqid('workcert_') . '.pdf';
-            \Storage::disk('public')->put($fileName, $pdfData);
-            $filePath = $fileName;
-            \Log::info('PDF file saved from raw input at: ' . $filePath);
+            $fileName = 'workcert_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            // الحفظ في requests فقط
+            $file->storeAs('requests', $fileName);
+            $filePath = 'requests/' . $fileName;
+        }
+        // إذا كان الملف Base64
+        elseif ($request->filled('pdf_base64')) {
+            $pdfData = base64_decode($request->input('pdf_base64'));
+            $fileName = 'workcert_' . uniqid() . '.pdf';
+            \Storage::disk('public')->put('requests/' . $fileName, $pdfData);
+            $filePath = 'requests/' . $fileName;
         } else {
-            \Log::error('No PDF file received in request.');
             return response()->json(['error' => 'PDF file is required.'], 422);
         }
 
@@ -55,7 +51,7 @@ class WorkCertificateController extends Controller
         }
 
         $certificate = WorkCertificate::create([
-            'user_id' => Auth::id(),
+            'user_id' => \Auth::id(),
             'full_name' => $validated['fullName'],
             'matricule' => $validated['matricule'],
             'grade' => $validated['grade'] ?? null,
@@ -67,9 +63,59 @@ class WorkCertificateController extends Controller
             'file_path' => $filePath,
             'status' => $request->input('status', 'pending'),
         ]);
-        \Log::info('WorkCertificate created with file_path: ' . $filePath);
 
-        return response()->json($certificate, 201);
+        // إشعار أدمين
+        AdminNotification::create([
+            'title' => 'طلب شهادة عمل جديد',
+            'title_fr' => "Nouvelle demande d'attestation de travail",
+            'body' => 'العميل: ' . $validated['fullName'] . ' - أرسل طلب شهادة عمل جديد',
+            'body_fr' => 'Client: ' . $validated['fullName'] . " a soumis une demande d'attestation de travail",
+            'type' => 'workCertificate',
+            'is_read' => false,
+            'data' => json_encode([
+                'certificate_id' => $certificate->id,
+                'user_id' => \Auth::id(),
+            ]),
+        ]);
+        // إشعار لحظي للأدمين
+        event(new \App\Events\NewNotification([
+            'id' => $certificate->id,
+            'title' => 'طلب شهادة عمل جديد',
+            'title_fr' => "Nouvelle demande d'attestation de travail",
+            'type' => 'workCertificate',
+            'user_id' => \Auth::id(),
+        ]));
+
+        // إشعار للمستخدم
+        \App\Models\UserNotification::create([
+            'user_id' => \Auth::id(),
+            'title_ar' => 'تم حفظ شهادة العمل بنجاح',
+            'title_fr' => 'Attestation de travail sauvegardée avec succès',
+            'body_ar' => 'تم إرسال طلبك إلى الإدارة. الحالة: في انتظار المراجعة.',
+            'body_fr' => "Votre demande a été envoyée à l'administration. Statut: en attente de validation.",
+            'type' => 'workCertificate',
+            'is_read' => false,
+            'data' => json_encode(['certificate_id' => $certificate->id]),
+        ]);
+
+        // معلومات الملف
+        $fileInfo = null;
+        if ($filePath) {
+            $fullPath = storage_path('app/public/' . $filePath);
+            if (file_exists($fullPath)) {
+                $fileInfo = [
+                    'size' => filesize($fullPath),
+                    'size_formatted' => $this->formatFileSize(filesize($fullPath)),
+                    'created_at' => date('Y-m-d H:i:s', filemtime($fullPath)),
+                ];
+            }
+        }
+
+        return response()->json([
+            'message' => 'تم إرسال الطلب بنجاح!',
+            'data' => $certificate->setAttribute('pdf_url', '/storage/requests/' . basename($certificate->file_path)),
+            'file_info' => $fileInfo,
+        ], 201);
     }
 
     public function countAll()
@@ -85,9 +131,63 @@ class WorkCertificateController extends Controller
         return response()->json(['count' => $count]);
     }
 
+    public function downloadPDF($id)
+    {
+        $certificate = \App\Models\WorkCertificate::findOrFail($id);
+        // السماح للأدمين أو صاحب الطلب فقط
+        if (auth()->user()->is_admin || $certificate->user_id == auth()->id()) {
+            if ($certificate->pdf_blob) {
+                $filename = 'attestation_travail_' . preg_replace('/\s+/', '_', $certificate->full_name) . '.pdf';
+                return response($certificate->pdf_blob, 200)
+                    ->header('Content-Type', 'application/pdf')
+                    ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+            } elseif ($certificate->file_path && \Storage::disk('public')->exists($certificate->file_path)) {
+                $filename = 'attestation_travail_' . preg_replace('/\s+/', '_', $certificate->full_name) . '.pdf';
+                return \Storage::disk('public')->download($certificate->file_path, $filename);
+            }
+            return response()->json(['message' => 'PDF file not found.'], 404);
+        }
+        return response()->json(['message' => 'Forbidden'], 403);
+    }
+
+    public function downloadPDFfromDB($id)
+    {
+        $certificate = WorkCertificate::where('id', $id)
+            ->where('user_id', \Auth::id())
+            ->first();
+        if ($certificate && $certificate->pdf_blob) {
+            $filename = 'attestation_travail_' . preg_replace('/\s+/', '_', $certificate->full_name) . '.pdf';
+            return response($certificate->pdf_blob, 200)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        } elseif ($certificate && $certificate->file_path && \Storage::disk('public')->exists($certificate->file_path)) {
+            return \Storage::disk('public')->download($certificate->file_path);
+        }
+        return response()->json(['message' => 'PDF not found in database or storage'], 404);
+    }
+
+    private function formatFileSize($bytes)
+    {
+        if ($bytes >= 1073741824) {
+            return number_format($bytes / 1073741824, 2) . ' GB';
+        } elseif ($bytes >= 1048576) {
+            return number_format($bytes / 1048576, 2) . ' MB';
+        } elseif ($bytes >= 1024) {
+            return number_format($bytes / 1024, 2) . ' KB';
+        } else {
+            return $bytes . ' bytes';
+        }
+    }
+
     public function userCertificates()
     {
-        $certificates = WorkCertificate::where('user_id', Auth::id())->orderBy('created_at', 'desc')->get();
+        $certificates = WorkCertificate::where('user_id', \Auth::id())
+            ->orderBy('created_at', 'desc')
+            ->get(['id','full_name','matricule','file_path','type','status','created_at','grade','hire_date','function','purpose','additional_info']);
+        $certificates = $certificates->map(function($item) {
+            $item->created_at = $item->created_at ? $item->created_at->format('Y-m-d H:i:s') : null;
+            return $item;
+        });
         return response()->json($certificates);
     }
 } 

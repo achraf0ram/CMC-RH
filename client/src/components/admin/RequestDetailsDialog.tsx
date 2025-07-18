@@ -11,17 +11,20 @@ import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { FileText, Calendar, ClipboardCheck, CreditCard, DollarSign, BadgeCheck, XCircle, Clock } from 'lucide-react';
-import frLocale from 'date-fns/locale/fr';
-import arLocale from 'date-fns/locale/ar';
+import ar from 'date-fns/locale/ar';
+import fr from 'date-fns/locale/fr';
+import { Locale } from 'date-fns';
 
 interface Request {
   id: number;
   full_name: string;
   matricule: string;
   created_at: string;
-  status: 'pending' | 'approved' | 'rejected' | 'urgent';
+  status: 'pending' | 'approved' | 'rejected' | 'waiting_admin_file' | 'urgent' | '';
   type: string;
   file_path: string | null;
+  scrollToAttachment?: boolean;
+  leave_type?: string;
   // Add any other fields from your various request types
   [key: string]: any;
 }
@@ -33,7 +36,7 @@ interface RequestDetailsDialogProps {
 }
 
 export const RequestDetailsDialog: React.FC<RequestDetailsDialogProps> = ({ request, isOpen, onClose }) => {
-  const { t, lang } = useLanguage();
+  const { t, language } = useLanguage();
   const attachmentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (request && (request as any).scrollToAttachment && attachmentRef.current) {
@@ -65,8 +68,9 @@ export const RequestDetailsDialog: React.FC<RequestDetailsDialogProps> = ({ requ
       case 'urgent':
         return { label: t('urgent'), color: 'bg-red-100 text-red-800', icon: <span className="mr-1">⚡</span> };
       case 'pending':
+        return { label: 'Normal', color: 'bg-yellow-100 text-yellow-800', icon: null };
       default:
-        return { label: t('pending'), color: 'bg-gray-100 text-gray-800', icon: <span className="mr-1">⏳</span> };
+        return { label: '', color: '', icon: null };
     }
   };
   // ترتيب الحقول الأساسية
@@ -75,9 +79,9 @@ export const RequestDetailsDialog: React.FC<RequestDetailsDialogProps> = ({ requ
     { label: t('matricule'), value: request.matricule },
     { label: t('type'), value: request.type, isBadge: true, badgeInfo: getTypeInfo(request.type) },
     { label: t('status'), value: request.status, isBadge: true, badgeInfo: getStatusInfo(request.status) },
-    { label: t('createdAt'), value: request.created_at ? format(new Date(request.created_at), 'PPP p', { locale: lang === 'ar' ? arLocale : frLocale }) : '' },
-    { label: t('startDate'), value: request.start_date ? format(new Date(request.start_date), 'PPP', { locale: lang === 'ar' ? arLocale : frLocale }) : '' },
-    { label: t('endDate'), value: request.end_date ? format(new Date(request.end_date), 'PPP', { locale: lang === 'ar' ? arLocale : frLocale }) : '' },
+    { label: t('createdAt'), value: request.created_at ? format(new Date(request.created_at), 'PPP p', { locale: language === 'ar' ? (ar as unknown as Locale) : (fr as unknown as Locale) }) : '' },
+    { label: t('startDate'), value: request.start_date ? format(new Date(request.start_date), 'PPP', { locale: language === 'ar' ? (ar as unknown as Locale) : (fr as unknown as Locale) }) : '' },
+    { label: t('endDate'), value: request.end_date ? format(new Date(request.end_date), 'PPP', { locale: language === 'ar' ? (ar as unknown as Locale) : (fr as unknown as Locale) }) : '' },
     { label: t('phone'), value: request.phone },
     { label: t('address'), value: request.address },
     { label: t('leaveType'), value: request.leave_type },
@@ -92,16 +96,16 @@ export const RequestDetailsDialog: React.FC<RequestDetailsDialogProps> = ({ requ
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className={`sm:max-w-[430px] rounded-xl shadow-2xl border-0 p-6 ${lang === 'ar' ? 'text-right' : 'text-left'}`}
-        style={{ direction: lang === 'ar' ? 'rtl' : 'ltr' }}
+        className={`sm:max-w-[430px] rounded-xl shadow-2xl border-0 p-6 ${language === 'ar' ? 'text-right' : 'text-left'}`}
+        style={{ direction: language === 'ar' ? 'rtl' : 'ltr' }}
       >
-        <DialogHeader className={`flex flex-col ${lang === 'ar' ? 'items-end' : 'items-start'}`}>
+        <DialogHeader className={`flex flex-col ${language === 'ar' ? 'items-end' : 'items-start'}`}>
           <DialogTitle className="text-lg font-bold flex items-center gap-2">
             {getTypeInfo(request.type).icon}
             {getTypeInfo(request.type).label} {t('details')}
           </DialogTitle>
           <DialogDescription className="text-[14px] text-gray-500 mb-2">
-            {lang === 'ar'
+            {language === 'ar'
               ? `جميع تفاصيل الطلب الخاص بـ ${request.full_name}`
               : `Tous les détails de la demande de ${request.full_name}`}
           </DialogDescription>
@@ -112,7 +116,7 @@ export const RequestDetailsDialog: React.FC<RequestDetailsDialogProps> = ({ requ
             <div className={`flex justify-between items-center text-[14px] border-b pb-1`} key={idx}>
               <span className="font-semibold text-gray-700">{field.label}:</span>
               <div className={`break-words`}>
-                {field.label === t('status') ? (
+                {field.label === t('status') && getStatusInfo(request.status).label ? (
                   <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold ${getStatusInfo(request.status).color}`}>
                     {getStatusInfo(request.status).icon}
                     {getStatusInfo(request.status).label}
@@ -134,7 +138,7 @@ export const RequestDetailsDialog: React.FC<RequestDetailsDialogProps> = ({ requ
               <span className="font-semibold text-gray-700">{t('attachment')}:</span>
               <div className="flex gap-2 items-center">
                 <a href={`/file-viewer?file=${encodeURIComponent(`http://localhost:8000/storage/${request.file_path}`)}`} className="text-blue-600 hover:underline font-medium" target="_blank" rel="noopener noreferrer">
-                  {t('viewFile')}
+                  {language === 'ar' ? 'عرض PDF' : 'Afficher PDF'}
                 </a>
               </div>
             </div>

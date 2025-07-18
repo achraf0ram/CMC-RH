@@ -19,5 +19,7 @@ class WorkCertificate extends Model
         'additional_info',
         'user_id',
         'status',
+        'file_path',
+        'type',
     ];
 } 

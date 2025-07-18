@@ -1,6 +1,7 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useEffect, useState } from "react";
 import axios from "axios";
+import { playMessageSound } from '../utils/sounds';
 
 // Define User type
 interface User {
@@ -11,24 +12,20 @@ interface User {
   created_at: string;
   updated_at: string;
   is_admin: boolean;
+  profile_photo_url?: string;
+  phone?: string;
 }
 
-// Define context type
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{success: boolean, isAdmin: boolean}>;
-  register: (
-    name: string,
-    email: string,
-    password: string,
-    passwordConfirmation: string,
-    phone: string
-  ) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; isAdmin?: boolean; errors?: Record<string, string[]> }>;
+  register: (name: string, email: string, password: string, passwordConfirmation: string, phone: string) => Promise<{ success: boolean; errors?: Record<string, string[]> }>;
   logout: () => Promise<void>;
   error: string | null;
   validationErrors: Record<string, string[]> | null;
+  token: string | null;
 }
 
 // Create the context
@@ -55,6 +52,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     string,
     string[]
   > | null>(null);
+  // أضف token إلى state
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
 
   const getCsrf = async () => {
     await api.get("/sanctum/csrf-cookie");
@@ -62,12 +61,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   
   const fetchUser = async () => {
     try {
+      // إذا كان هناك توكن في localStorage ولم يتم وضعه في الهيدر، أضفه
+      const storedToken = localStorage.getItem('token');
+      if (storedToken) {
+        api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+        setToken(storedToken);
+      }
       const res = await api.get("api/user");
       setUser(res.data);
       return res.data;
     } catch {
       setUser(null);
+      setToken(null);
       return null;
+    }
+  };
+
+  // دالة منفصلة لتحديث شعار المستخدم الحالي
+  const fetchUserAvatar = async () => {
+    if (!user) return;
+    try {
+      const res = await api.get("api/user");
+      // تحديث الشعار فقط إذا تغير
+      if (res.data.profile_photo_url !== user.profile_photo_url) {
+        setUser(prev => prev ? { ...prev, profile_photo_url: res.data.profile_photo_url } : null);
+      }
+    } catch {
+      // لا نعرض خطأ هنا لأنها تحديث تلقائي للشعار فقط
     }
   };
 
@@ -80,24 +100,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string): Promise<{success: boolean, isAdmin: boolean}> => {
+  // تحديث شعار المستخدم الحالي كل 5 ثوانٍ
+  useEffect(() => {
+    if (!user) return;
+    
+    const interval = setInterval(fetchUserAvatar, 5000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const login = async (
+    email: string,
+    password: string
+  ): Promise<{ success: boolean; isAdmin?: boolean; errors?: Record<string, string[]> }> => {
     setError(null);
     setValidationErrors(null);
     try {
       await getCsrf();
-      await api.post("/login", { email, password });
-      const user = await fetchUser(); // Fetch user after login
-      return { success: true, isAdmin: !!user?.is_admin };
+      const res = await api.post("/login", {
+        email,
+        password,
+      });
+      const userData = res.data.user;
+      setUser(userData);
+      if (res.data.token) {
+        setToken(res.data.token);
+        localStorage.setItem('token', res.data.token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
+      }
+      await fetchUser();
+      return { success: true, isAdmin: userData?.is_admin };
     } catch (err: any) {
       if (err.response?.status === 422) {
         const errors = err.response.data.errors;
         setValidationErrors(errors);
         setError("Validation failed");
-        return { success: false, isAdmin: false };
+        return { success: false, errors };
       }
       const errorMessage = err.response?.data?.message || "Login failed";
       setError(errorMessage);
-      return { success: false, isAdmin: false };
+      return { success: false, errors: { general: [errorMessage] } };
     }
   };
 
@@ -120,6 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         phone,
       });
       await fetchUser(); // Fetch user after registration
+      setUser(await fetchUser());
       return { success: true };
     } catch (err: any) {
       if (err.response?.status === 422) {
@@ -138,6 +180,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       await api.post("/logout");
       setUser(null);
+      setToken(null);
+      localStorage.removeItem('token');
+      delete api.defaults.headers.common['Authorization'];
     } catch (err: any) {
       setError(err.response?.data?.message || "Logout failed");
     }
@@ -154,6 +199,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         logout,
         error,
         validationErrors,
+        token, // أضف التوكن هنا
       }}>
       {children}
     </AuthContext.Provider>

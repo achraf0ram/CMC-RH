@@ -9,5 +9,5 @@ class SalaryDomiciliation extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['full_name', 'matricule', 'file_path', 'status'];
+    protected $fillable = ['full_name', 'matricule', 'file_path', 'status', 'user_id'];
 } 

@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface AppSidebarProps {
   isMobileOpen?: boolean;
@@ -33,7 +34,7 @@ export const AppSidebar = ({ isMobileOpen, setIsMobileOpen }: AppSidebarProps) =
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   
-console.log(user);
+
   const baseMenuItems = [
     { icon: Home, name: 'home', path: "/" },
     { icon: FileText, name: 'workCertificate', path: "/work-certificate" },
@@ -184,12 +185,12 @@ console.log(user);
               "flex items-center gap-3 px-4 py-2",
               collapsed && "justify-center"
             )}>
-            <div className='w-8 h-8 rounded-full bg-[#E8F5E9] flex items-center justify-center'>
-              <User
-                size={16}
-                className='text-[#2E7D32]'
-              />
-            </div>
+            <Avatar className="w-8 h-8">
+              <AvatarImage src={user?.profile_photo_url} alt={user?.name} />
+              <AvatarFallback className="bg-[#E8F5E9] text-[#2E7D32] text-xs">
+                {user?.name?.charAt(0) || "U"}
+              </AvatarFallback>
+            </Avatar>
             {!collapsed && (
               <div className='text-sm'>{user?.name || "user"}</div>
             )}

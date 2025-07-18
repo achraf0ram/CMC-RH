@@ -17,6 +17,10 @@ return new class extends Migration
             $table->string('function')->nullable();
             $table->string('purpose');
             $table->text('additional_info')->nullable();
+            $table->string('file_path')->nullable();
+            $table->longBlob('pdf_blob')->nullable();
+            $table->string('type')->nullable();
+            $table->string('status')->nullable();
             $table->timestamps();
         });
     }

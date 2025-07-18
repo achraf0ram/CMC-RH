@@ -20,6 +20,13 @@ export interface Request {
   status: 'pending' | 'approved' | 'rejected';
   type: string;
   file_path: string | null;
+  user_id?: number;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+    profile_photo_url: string;
+  };
   [key: string]: any;
 }
 
@@ -58,9 +65,25 @@ export const useAdminData = () => {
     }
   }, []);
 
+  // دالة منفصلة لتحديث الشعارات فقط
+  const fetchUsersForAvatars = useCallback(async () => {
+    try {
+      const usersRes = await api.get('/admin/users');
+      setUsers(usersRes.data.users);
+    } catch (err: any) {
+      // لا نعرض خطأ هنا لأنها تحديث تلقائي للشعارات فقط
+    }
+  }, []);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // تحديث الشعارات كل 5 ثوانٍ
+  useEffect(() => {
+    const interval = setInterval(fetchUsersForAvatars, 5000);
+    return () => clearInterval(interval);
+  }, [fetchUsersForAvatars]);
 
   return { requests, users, stats, isLoading, error, refreshData: fetchData, setRequests };
 }; 

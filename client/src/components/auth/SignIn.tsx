@@ -17,7 +17,7 @@ const formSchema = z.object({
 
 export const SignIn = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const { toast } = useToast();
   const { setLanguage } = useLanguage();
 
@@ -42,15 +42,21 @@ export const SignIn = () => {
         });
         
         setLanguage('fr');
-
-        setTimeout(() => {
-          if (isAdmin) {
-            navigate("/admin/dashboard", { replace: true });
-          } else {
-            navigate("/", { replace: true });
+        // انتظر حتى يتم تحميل بيانات المستخدم
+        const waitForUser = async () => {
+          let tries = 0;
+          while (!user && tries < 20) {
+            await new Promise(res => setTimeout(res, 100));
+            tries++;
           }
-        }, 100); // A small delay to ensure state update
+        };
+        await waitForUser();
 
+        if (isAdmin) {
+          navigate("/admin/dashboard", { replace: true });
+        } else {
+          navigate("/", { replace: true });
+        }
       } else {
         toast({
           variant: "destructive",

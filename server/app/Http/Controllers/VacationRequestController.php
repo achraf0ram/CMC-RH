@@ -10,6 +10,9 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use App\Events\NewRequest;
+use App\Events\RequestStatusUpdated;
+use App\Models\AdminNotification;
 
 class VacationRequestController extends Controller
 {
@@ -43,6 +46,7 @@ class VacationRequestController extends Controller
                 'arabicInterim' => 'nullable|string',
                 'leaveMorocco' => 'sometimes|boolean',
                 'signature' => 'nullable|string',
+                'pdf_base64' => 'nullable|string',
             ]);
 
             $signaturePath = null;
@@ -66,19 +70,6 @@ class VacationRequestController extends Controller
                     Storage::disk('public')->put($fileName, $signatureData);
                     $signaturePath = $fileName;
                 }
-            }
-
-            $filePath = null;
-            if ($request->hasFile('pdf')) {
-                $file = $request->file('pdf');
-                $fileName = 'requests/' . uniqid('vacation_') . '.' . $file->getClientOriginalExtension();
-                $file->storeAs('public/requests', basename($fileName));
-                $filePath = 'requests/' . basename($fileName);
-            } elseif ($request->filled('pdf_base64')) {
-                $pdfData = base64_decode($request->input('pdf_base64'));
-                $fileName = 'requests/' . uniqid('vacation_') . '.pdf';
-                \Storage::disk('public')->put($fileName, $pdfData);
-                $filePath = $fileName;
             }
 
             $type = $request->input('type');
@@ -113,16 +104,71 @@ class VacationRequestController extends Controller
                 'arabic_interim' => $validatedData['arabicInterim'] ?? null,
                 'leave_morocco' => $validatedData['leaveMorocco'] ?? false,
                 'signature_path' => $signaturePath,
-                'file_path' => $filePath,
+                'file_path' => null, // سيتم تحديثه بعد الحفظ
                 'type' => $type,
                 'status' => $request->input('status', 'pending'),
+                'pdf_blob' => null, // سيتم تحديثه بعد الحفظ
             ]);
+
+            // حذف أي ملف قديم
+            if ($vacationRequest->file_path && \Storage::disk('public')->exists($vacationRequest->file_path)) {
+                \Storage::disk('public')->delete($vacationRequest->file_path);
+            }
+
+            // حفظ الملف باسم جديد داخل مجلد requests فقط (بدون vacation فرعي)
+            $fileName = 'vacation_' . $vacationRequest->id . '.pdf';
+            $dir = 'requests';
+            if ($request->hasFile('pdf')) {
+                $file = $request->file('pdf');
+                $file->storeAs($dir, $fileName);
+                $filePath = $dir . '/' . $fileName;
+                $pdfBlob = file_get_contents($file->getRealPath());
+            } elseif ($request->filled('pdf_base64')) {
+                $pdfData = base64_decode($request->input('pdf_base64'));
+                \Storage::disk('public')->put($dir . '/' . $fileName, $pdfData);
+                $filePath = $dir . '/' . $fileName;
+                $pdfBlob = $pdfData;
+            } else {
+                $filePath = null;
+                $pdfBlob = null;
+            }
+            $vacationRequest->file_path = $filePath;
+            $vacationRequest->pdf_blob = $pdfBlob;
+            $vacationRequest->save();
+
+            // إشعار أدمين
+            AdminNotification::create([
+                'title' => 'طلب عطلة جديد',
+                'title_fr' => 'Nouvelle demande de congé',
+                'body' => 'العميل: ' . $validatedData['fullName'] . ' - أرسل طلب عطلة جديد',
+                'body_fr' => 'Client: ' . $validatedData['fullName'] . ' a soumis une demande de congé',
+                'type' => 'vacationRequest',
+                'is_read' => false,
+                'data' => json_encode([
+                    'request_id' => $vacationRequest->id,
+                    'user_id' => \Auth::id(),
+                ]),
+            ]);
+
+            // إشعار للمستخدم
+            \App\Models\UserNotification::create([
+                'user_id' => Auth::id(),
+                'title_ar' => 'تم حفظ طلب الإجازة بنجاح',
+                'title_fr' => 'Demande de congé sauvegardée avec succès',
+                'body_ar' => 'تم إرسال طلبك إلى الإدارة. الحالة: في انتظار المراجعة.',
+                'body_fr' => "Votre demande a été envoyée à l'administration. Statut: en attente de validation.",
+                'type' => 'vacationRequest',
+                'is_read' => false,
+                'data' => json_encode(['vacation_request_id' => $vacationRequest->id]),
+            ]);
+
+            event(new NewRequest($vacationRequest));
 
             Log::info('Vacation request stored successfully', ['id' => $vacationRequest->id]);
 
             return response()->json([
-                'message' => 'Vacation request submitted successfully!',
-                'data' => $vacationRequest,
+                'message' => __('📤 تم الإرسال — تم إرسال الطلب إلى الإدارة بنجاح'),
+                'data' => $vacationRequest->makeHidden(['pdf_blob'])->setAttribute('pdf_url', '/storage/requests/' . basename($vacationRequest->file_path)),
             ], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::error('Validation failed', ['errors' => $e->errors()]);
@@ -134,6 +180,18 @@ class VacationRequestController extends Controller
             ]);
             return response()->json(['message' => 'An error occurred while submitting the request.'], 500);
         }
+    }
+
+    public function updateStatus(Request $request, $type, $id)
+    {
+        $req = VacationRequest::findOrFail($id);
+        $validated = $request->validate([
+            'status' => 'required|string|in:pending,approved,rejected,cancelled',
+        ]);
+        $req->status = $validated['status'];
+        $req->save();
+        event(new RequestStatusUpdated($req->id, $req->status));
+        return response()->json(['message' => 'Status updated successfully', 'data' => $req]);
     }
 
     public function countPending()
@@ -166,9 +224,56 @@ class VacationRequestController extends Controller
         return response()->json(['count' => $count]);
     }
 
+    // دالة تحميل PDF
+    public function downloadPDF($id)
+    {
+        $request = \App\Models\VacationRequest::findOrFail($id);
+        // السماح للأدمين أو صاحب الطلب فقط
+        if (auth()->user()->is_admin || $request->user_id == auth()->id()) {
+            if ($request->pdf_blob) {
+                $filename = 'DEMANDE_CONGE ' . ($request->full_name ?? 'user') . '.pdf';
+                return response($request->pdf_blob, 200, [
+                    'Content-Type' => 'application/pdf',
+                    'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                ]);
+            } elseif ($request->file_path && \Storage::disk('public')->exists($request->file_path)) {
+                return \Storage::disk('public')->download($request->file_path);
+            }
+            return response()->json(['message' => 'PDF file not found.'], 404);
+        }
+        return response()->json(['message' => 'Forbidden'], 403);
+    }
+
+    // تعديل دالة history للمستخدم
     public function userRequests()
     {
-        $requests = VacationRequest::where('user_id', Auth::id())->orderBy('created_at', 'desc')->get();
+        $requests = VacationRequest::where('user_id', Auth::id())
+            ->orderBy('created_at', 'desc')
+            ->get(['id','full_name','matricule','file_path','type','status','created_at','start_date','end_date','leave_type','custom_leave_type']);
+        // تأكد من أن created_at يعاد بتنسيق كامل مع الوقت
+        $requests = $requests->map(function($item) {
+            $item->created_at = $item->created_at ? $item->created_at->format('Y-m-d H:i:s') : null;
+            return $item;
+        });
         return response()->json($requests);
+    }
+
+    // تحميل ملف vacation من التخزين بشكل آمن
+    public function secureDownload($filename)
+    {
+        $user = auth()->user();
+        $filePath = storage_path('app/requests/' . $filename);
+        if (!file_exists($filePath)) {
+            return response()->json(['message' => 'الملف غير موجود'], 404);
+        }
+        // تحقق من أن المستخدم أدمين أو صاحب الطلب
+        $vacation = \App\Models\VacationRequest::where('file_path', 'requests/' . $filename)->first();
+        if (!$vacation) {
+            return response()->json(['message' => 'الطلب غير موجود'], 404);
+        }
+        if (!($user->is_admin || $user->id == $vacation->user_id)) {
+            return response()->json(['message' => 'غير مصرح'], 403);
+        }
+        return response()->download($filePath);
     }
 }

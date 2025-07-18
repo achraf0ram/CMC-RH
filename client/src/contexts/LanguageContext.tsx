@@ -140,7 +140,7 @@ const translations: Translations = {
     refreshData: "تحديث البيانات",
     pendingToday: "طلبات اليوم المعلقة",
     newUsersThisWeek: "مستخدمين جدد هذا الأسبوع",
-    urgentRequests: "طلبات عاجلة",
+    urgentRequests: "رسائل عاجلة",
     overview: "لوحة المعلومات",
     notificationsCenter: "مركز الإشعارات",
     requestsManagement: "إدارة الطلبات",
@@ -172,7 +172,11 @@ const translations: Translations = {
     annualIncome_t: "شهادة الدخل السنوي",
     urgentMessageAdminReplyTitle: "لقد تلقيت رداً من الإدارة على رسالتك العاجلة.",
     deleteRequestConfirmation: "هل أنت متأكد أنك تريد حذف هذا الطلب؟",
-    delete: "حذف"
+    delete: "حذف",
+    notifApproved: "تم قبول طلبك بنجاح. سيتم تجهيز الملف قريبًا.",
+    notifRejected: "تم رفض طلبك لأنه غير مكتمل أو لا يستوفي الشروط. يمكنك إعادة المحاولة بعد استكمال البيانات.",
+    notifWaitingAdminFile: "تمت الموافقة على طلبك جزئيًا. انتظر ملف الإدارة.",
+    notifPending: "طلبك قيد المراجعة. سيتم إعلامك عند تحديث الحالة."
   },
   fr: {
     home: "Accueil",
@@ -305,7 +309,7 @@ const translations: Translations = {
     refreshData: "Actualiser les données",
     pendingToday: "Demandes en attente aujourd'hui",
     newUsersThisWeek: "Nouveaux utilisateurs cette semaine",
-    urgentRequests: "Demandes urgentes",
+    urgentRequests: "Messages urgents",
     overview: "Tableau de bord",
     notificationsCenter: "Centre de notifications",
     requestsManagement: "Gestion des demandes",
@@ -337,7 +341,11 @@ const translations: Translations = {
     annualIncome_t: "Attestation de revenu annuel",
     urgentMessageAdminReplyTitle: "Vous avez reçu une réponse de l'administration à votre demande urgente.",
     deleteRequestConfirmation: "Êtes-vous sûr de vouloir supprimer cette demande ?",
-    delete: "Supprimer"
+    delete: "Supprimer",
+    notifApproved: "Votre demande a été acceptée. Le fichier sera prêt bientôt.",
+    notifRejected: "Votre demande a été rejetée car elle est incomplète ou ne répond pas aux critères. Vous pouvez réessayer après avoir complété les informations.",
+    notifWaitingAdminFile: "Votre demande a été partiellement acceptée. Attendez le fichier de l'admin.",
+    notifPending: "Votre demande est en cours de traitement. Vous serez notifié lors de la mise à jour."
   }
 };
 

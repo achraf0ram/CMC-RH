@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,11 +9,12 @@ import { axiosInstance as api } from '@/components/Api/axios';
 import { useToast } from '@/hooks/use-toast';
 import { RequestDetailsDialog } from './RequestDetailsDialog';
 import { FileDown } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { FileText, Calendar, ClipboardCheck, CreditCard, DollarSign } from 'lucide-react';
 import { fr } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 // This declaration tells TypeScript that the jsPDF object and its autoTable method will exist on the window object.
 declare global {
@@ -23,34 +24,70 @@ declare global {
   }
 }
 
-interface Request {
+// Change interface name to AdminRequest to avoid type conflicts
+interface AdminRequest {
   id: number;
   full_name: string;
   matricule: string;
   created_at: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'waiting_admin_file' | 'urgent' | '';
   type: string;
   file_path: string | null;
   scrollToAttachment?: boolean;
   leave_type?: string;
+  user_id?: number;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+    profile_photo_url: string;
+  };
 }
 
 interface AdminRequestsTableProps {
-  requests: Request[];
+  requests: AdminRequest[];
   onRequestUpdate: () => void;
-  setRequests?: React.Dispatch<React.SetStateAction<Request[]>>;
+  setRequests?: React.Dispatch<React.SetStateAction<AdminRequest[]>>;
   highlightedRequestId?: string | null;
   clearHighlight?: () => void;
 }
 
-export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests, onRequestUpdate, setRequests, highlightedRequestId, clearHighlight }) => {
+export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests, onRequestUpdate, setRequests, highlightedRequestId: propHighlightedRequestId, clearHighlight }) => {
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedRequest, setSelectedRequest] = useState<AdminRequest | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [requestToDelete, setRequestToDelete] = useState<Request | null>(null);
+  const [requestToDelete, setRequestToDelete] = useState<AdminRequest | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  // قراءة highlight من كود الاستعلام
+  const urlParams = new URLSearchParams(location.search);
+  const highlightFromUrl = urlParams.get('highlight');
+  const highlightedRequestId = propHighlightedRequestId || highlightFromUrl;
+  // إزالة كل منطق highlightClickCount، واجعل handleHighlightInteraction تزيل highlight من الـ URL مباشرة عند أي تفاعل
+  // احذف تعريف highlightClickCount نهائيًا
+  // const [highlightClickCount, setHighlightClickCount] = useState(0);
+
+  // refs للصفوف
+  const rowRefs = useRef<{ [key: string]: HTMLTableRowElement | null }>({});
+  const hasScrolledToHighlight = useRef<string | null>(null);
+
+  // أضف حالة جديدة لإظهار Dialog رفع PDF
+  const [uploadDialog, setUploadDialog] = useState<{ open: boolean; req: AdminRequest | null }>({ open: false, req: null });
+
+  // أضف حالة جديدة 'deleted' في rowStates
+  // احذف أي تعريف مكرر لـ rowStates و setRowStates
+  // أضف حالة جديدة pdf_sent
+  const [rowStates, setRowStates] = useState<{ [key: string]: 'normal' | 'approved' | 'rejected' | 'deleted' | 'pdf_sent' | 'approved_pending_file' }>({});
+
+  // أضف حالة loading محلية لكل صف
+  const [rowLoading, setRowLoading] = useState<{ [key: string]: boolean }>({});
+
+  // أضف حالة لتخزين الملف المؤقت قبل الإرسال
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const requestTypes = useMemo(() => {
     const types = Array.from(new Set(requests.map(r => r.type)));
@@ -63,27 +100,89 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
         if (typeFilter === 'all') return true;
         return req.type === typeFilter;
       })
+          .filter(req => {
+      if (statusFilter === 'all') return true;
+      return req.status === statusFilter;
+    })
       .filter(req => {
         return req.full_name.toLowerCase().includes(searchTerm.toLowerCase());
       });
-  }, [requests, searchTerm, typeFilter]);
+  }, [requests, searchTerm, typeFilter, statusFilter]);
 
+  // Scroll تلقائي للصف المميز مع إعادة المحاولة إذا لم يكن ظاهرًا
+  useEffect(() => {
+    let retryTimeout: NodeJS.Timeout | null = null;
+    function tryScrollToHighlight(attempt = 0) {
+      if (
+        highlightedRequestId &&
+        rowRefs.current[highlightedRequestId] &&
+        hasScrolledToHighlight.current !== highlightedRequestId
+      ) {
+        rowRefs.current[highlightedRequestId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        hasScrolledToHighlight.current = highlightedRequestId;
+        // احذف سطر document.activeElement.blur(); نهائيًا
+      } else if (highlightedRequestId && attempt < 10) {
+        // أعد المحاولة بعد 150ms إذا لم يكن الصف ظاهرًا بعد (مثلاً بسبب الفلترة أو البطء)
+        retryTimeout = setTimeout(() => tryScrollToHighlight(attempt + 1), 150);
+      }
+    }
+    tryScrollToHighlight();
+    return () => {
+      if (retryTimeout) clearTimeout(retryTimeout);
+    };
+  }, [highlightedRequestId, filteredRequests, location.search]);
+
+  // لا تزل highlight من الـ URL تلقائيًا أبداً هنا
+  // فقط عند تفاعل المستخدم (بحث/فلتر/ضغط صف)
+
+  // احذف useEffect الذي ينفذ setHighlightClickCount(0)
+  // useEffect(() => { setHighlightClickCount(0) }, [highlightedRequestId]);
+
+  // إعادة تعيين hasScrolledToHighlight عند كل تغيير في location.search
+  useEffect(() => {
+    hasScrolledToHighlight.current = null;
+  }, [location.search]);
+
+  // أضف دالة مساعدة لتحديث حالة الطلب محلياً في الـ state
+  const updateRequestStatusLocally = (id: number, type: string, newStatus: AdminRequest['status'], newFilePath?: string) => {
+    setRequests(prev => prev.map(req => {
+      if (req.id === id && req.type === type) {
+        return {
+          ...req,
+          status: newStatus,
+          ...(newFilePath ? { file_path: newFilePath } : {}),
+        };
+      }
+      return req;
+    }));
+  };
+
+  // عدل دالة handleUpdateStatus بحيث عند الموافقة لا ترسل للباكند، فقط غيّر الحالة محليًا
   const handleUpdateStatus = async (type: string, id: number, status: 'approved' | 'rejected') => {
-    const typeSlug = type.toLowerCase().replace(/\s+/g, '_') + 's';
+    const rowKey = `${id}-${type}`;
+    const typeSlug = typeToApi(type);
+    setRowLoading(prev => ({ ...prev, [rowKey]: true })); // أظهر spinner
     try {
-      await api.post(`/admin/requests/${typeSlug}/${id}/status`, { status });
+      // If approving, set to 'waiting_admin_file' instead
+      const newStatus = status === 'approved' ? 'waiting_admin_file' : 'rejected';
+      await api.post(`/admin/requests/${typeSlug}/${id}/status`, { status: newStatus });
+      updateRequestStatusLocally(id, type, newStatus);
       toast({
-        title: 'Status Updated',
-        description: `Request status has been updated to ${status}.`,
+        title: language === 'ar' ? 'تم تحديث الحالة' : 'Status Updated',
+        description: language === 'ar' ? 'تم تحديث حالة الطلب بنجاح' : 'Request status updated successfully',
+        variant: 'default',
+        duration: 3000,
       });
-      onRequestUpdate();
     } catch (error) {
       console.error('Failed to update status:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to update request status.',
+        title: language === 'ar' ? 'فشل تحديث الحالة' : 'Failed to update status',
+        description: error instanceof Error ? error.message : '',
         variant: 'destructive',
+        duration: 3000,
       });
+    } finally {
+      setRowLoading(prev => ({ ...prev, [rowKey]: false })); // أخفِ spinner
     }
   };
 
@@ -116,14 +215,7 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
     window.XLSX.writeFile(workbook, 'requests.xlsx');
   };
 
-  const getTypeInfo = (type: string, leaveType?: string) => {
-    if (!type || type === 'Non spécifié' || type === 'غير محدد') {
-      // If leaveType is available, use it for vacation requests
-      if (leaveType) {
-        return { label: leaveType, color: 'bg-blue-100 text-blue-800', icon: <Calendar className="w-4 h-4 mr-1 inline" /> };
-      }
-      return { label: t('notSpecified') || 'غير محدد', color: 'bg-gray-100 text-gray-800', icon: null };
-    }
+  const getTypeInfo = (type: string, t: (key: string) => string) => {
     switch (type) {
       case 'vacationRequest':
         return { label: t('vacationRequest'), color: 'bg-blue-100 text-blue-700', icon: <Calendar className="w-4 h-4 mr-1 inline" /> };
@@ -140,17 +232,45 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
     }
   };
 
-  const getStatusInfo = (status: string) => {
+  const getStatusBadgeInfo = (status: string) => {
     switch (status) {
+      case 'waiting_admin_file':
+        return {
+          color: 'bg-orange-100 text-orange-700',
+          text: language === 'ar'
+            ? 'قبول نسبي (رأى الأدمين طلبك .. انتظر ليرسل لك ملف)'
+            : 'Acceptation partielle (l’admin a vu votre demande, attendez le fichier)',
+        };
+      case 'approved':
+        return {
+          color: 'bg-green-100 text-green-700',
+          text: language === 'ar' ? 'قبول تام' : 'Accepté définitivement',
+        };
+      case 'rejected':
+        return {
+          color: 'bg-red-100 text-red-700',
+          text: language === 'ar' ? 'مرفوض' : 'Rejeté',
+        };
       case 'urgent':
-        return { label: t('urgent'), color: 'bg-red-100 text-red-800', icon: <span className="mr-1">⚡</span> };
+        return {
+          color: 'bg-red-100 text-red-800',
+          text: language === 'ar' ? 'عاجل' : 'Urgent',
+        };
       case 'pending':
+      case '':
       default:
-        return { label: t('pending'), color: 'bg-gray-100 text-gray-800', icon: <span className="mr-1">⏳</span> };
+        return {
+          color: 'bg-gray-100 text-gray-800',
+          text: language === 'ar' ? 'قيد الانتظار' : 'En attente',
+        };
     }
   };
 
-  const handleDeleteRequest = async (req: Request) => {
+  // أضف حالة جديدة 'deleted' في rowStates
+  // احذف أي تعريف مكرر لـ rowStates و setRowStates
+
+  // عند تأكيد الحذف (Reject)
+  const handleDeleteRequest = async (req: AdminRequest) => {
     setRequestToDelete(req);
     setShowDeleteDialog(true);
   };
@@ -169,29 +289,84 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
 
   const confirmDeleteRequest = async () => {
     if (!requestToDelete) return;
+    const rowKey = `${requestToDelete.id}-${requestToDelete.type}`;
+    setRowLoading(prev => ({ ...prev, [rowKey]: true })); // أظهر spinner
     try {
-      const url = `/admin/requests/${typeToApi(requestToDelete.type)}/${requestToDelete.id}`;
-      console.log('DELETE URL:', url, 'type:', requestToDelete.type, 'id:', requestToDelete.id);
-      await api.delete(url);
+      const typeSlug = typeToApi(requestToDelete.type);
+      await api.post(`/admin/requests/${typeSlug}/${requestToDelete.id}/status`, { status: 'rejected' });
       toast({
-        title: 'Deleted',
-        description: 'Request deleted successfully.',
-        variant: 'default',
-        className: 'bg-green-50 border-green-200',
+        title: language === 'ar' ? 'تم رفض الطلب' : 'Demande rejetée',
+        description: language === 'ar' ? 'تم وضع الطلب في حالة مرفوضة.' : 'La demande a été rejetée.',
+        variant: 'destructive',
       });
-      if (setRequests) {
-        setRequests(prev => prev.filter(r => !(r.id === requestToDelete.id && r.type === requestToDelete.type)));
-      }
-      onRequestUpdate();
+      setRowStates(prev => ({ ...prev, [rowKey]: 'deleted' }));
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to delete request.',
+        title: language === 'ar' ? 'خطأ' : 'Erreur',
+        description: language === 'ar' ? 'فشل في رفض الطلب.' : 'Échec du rejet de la demande.',
         variant: 'destructive',
       });
     } finally {
+      setRowLoading(prev => ({ ...prev, [rowKey]: false })); // أخفِ spinner
       setShowDeleteDialog(false);
       setRequestToDelete(null);
+    }
+  };
+
+  // عدل handleUploadPDF بحيث يرسل status=approved مع الملف
+  const handleUploadPDF = async (type: string, id: number, file: File) => {
+    const rowKey = `${id}-${type}`;
+    setRowLoading(prev => ({ ...prev, [rowKey]: true }));
+    try {
+      const typeSlug = typeToApi(type);
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await api.post(`/admin/requests/upload-file/${typeSlug}/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      // بعد نجاح رفع الملف، حدث الطلب محلياً
+      updateRequestStatusLocally(id, type, 'approved', response.data?.file_path);
+      toast({
+        title: language === 'ar' ? 'تم رفع الملف' : 'File uploaded',
+        description: language === 'ar' ? 'تم رفع ملف الإدارة بنجاح' : 'Admin file uploaded successfully',
+        variant: 'default',
+        duration: 3000,
+      });
+    } catch (error) {
+      toast({
+        title: language === 'ar' ? 'فشل رفع الملف' : 'Failed to upload file',
+        description: error instanceof Error ? error.message : '',
+        variant: 'destructive',
+        duration: 3000,
+      });
+    } finally {
+      setRowLoading(prev => ({ ...prev, [rowKey]: false }));
+    }
+  };
+
+  const getPdfUrl = (type: string, id: number) => {
+    let prefix = '';
+    if (type === 'workCertificate') prefix = 'workcert';
+    else if (type === 'vacationRequest') prefix = 'vacation';
+    else if (type === 'missionOrder') prefix = 'mission';
+    else return null;
+    return `/storage/requests/${prefix}_${id}.pdf`;
+  };
+
+  // دالة لإزالة highlight من الـ URL
+  const clearHighlightFromUrl = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('highlight');
+    window.history.replaceState({}, '', url.pathname + url.search);
+  };
+
+  // دالة تفاعل مع highlight: أول تفاعل يزيد العداد فقط، الثاني يزيل highlight
+  const handleHighlightInteraction = () => {
+    if (highlightedRequestId) {
+      // إزالة highlight من الـ URL مباشرة عند أي تفاعل
+      const url = new URL(window.location.href);
+      url.searchParams.delete('highlight');
+      window.history.replaceState({}, '', url.pathname + url.search);
     }
   };
 
@@ -201,12 +376,18 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
         <Input
           placeholder="Search by name..."
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            handleHighlightInteraction();
+          }}
           className="max-w-sm"
         />
         <div className="flex items-center gap-2">
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="min-w-[220px] max-w-xs">
+          <Select value={typeFilter} onValueChange={val => {
+            setTypeFilter(val);
+            handleHighlightInteraction();
+          }}>
+            <SelectTrigger className="min-w-[180px] max-w-xs">
               <SelectValue placeholder="Filter by type" />
             </SelectTrigger>
             <SelectContent>
@@ -216,7 +397,7 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
                 </span>
               </SelectItem>
               {requestTypes.map(type => {
-                const info = getTypeInfo(type);
+                const info = getTypeInfo(type, t);
                 return (
                   <SelectItem key={type} value={type}>
                     <span className="inline-flex items-center gap-1 w-full truncate">
@@ -227,6 +408,20 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
                 );
               })}
             </SelectContent>
+          </Select>
+          {/* Dropdown جديد لفلترة الحالة */}
+          <Select value={statusFilter} onValueChange={val => setStatusFilter(val)}>
+            <SelectTrigger className="min-w-[180px] max-w-xs">
+              <SelectValue placeholder={language === 'ar' ? 'تصفية حسب الحالة' : 'Filter by status'} />
+            </SelectTrigger>
+                    <SelectContent>
+          <SelectItem value="all">{language === 'ar' ? 'جميع الحالات' : 'Toutes les statuts'}</SelectItem>
+          <SelectItem value="pending">{language === 'ar' ? 'في انتظار' : 'En attente'}</SelectItem>
+          <SelectItem value="approved">{language === 'ar' ? 'تم الإرسال' : 'Accepté'}</SelectItem>
+          <SelectItem value="rejected">{language === 'ar' ? 'مرفوض' : 'Rejeté'}</SelectItem>
+          <SelectItem value="waiting_admin_file">{language === 'ar' ? 'بانتظار ملف الإدارة' : "En attente du fichier de l'admin"}</SelectItem>
+          <SelectItem value="urgent">{language === 'ar' ? 'عاجل' : 'Urgent'}</SelectItem>
+        </SelectContent>
           </Select>
           <Button onClick={handleExportPDF} variant="outline" size="sm" className="ml-2">
             <FileDown className="h-4 w-4 mr-2" />
@@ -250,22 +445,39 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredRequests.map(req => {
+          {filteredRequests && filteredRequests.map(req => {
             const uniqueKey = `${req.id}-${req.type}`;
             return (
               <TableRow
                 key={uniqueKey}
+                ref={el => { if (highlightedRequestId === uniqueKey) rowRefs.current[uniqueKey] = el; }}
                 className={`hover:bg-gray-50 cursor-pointer transition-all ${highlightedRequestId === uniqueKey ? 'border-2 border-blue-500 shadow-md' : ''}`}
                 onClick={() => {
                   setSelectedRequest(req);
+                  handleHighlightInteraction();
                   if (clearHighlight) clearHighlight();
                 }}
               >
-                <TableCell className="py-2 px-3 text-sm">{req.full_name}</TableCell>
+                <TableCell className="py-2 px-3 text-sm">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage src={req.user?.profile_photo_url} alt={req.user?.name || req.full_name} />
+                      <AvatarFallback className="text-xs">
+                        {(req.user?.name || req.full_name).charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="font-medium">{req.full_name}</div>
+                      {req.user?.email && (
+                        <div className="text-xs text-gray-500">{req.user.email}</div>
+                      )}
+                    </div>
+                  </div>
+                </TableCell>
                 <TableCell className="py-2 px-3 text-sm">{req.matricule}</TableCell>
                 <TableCell className="py-2 px-3 text-sm">
                   {(() => {
-                    const info = getTypeInfo(req.type, req.leave_type);
+                    const info = getTypeInfo(req.type, t);
                     return (
                       <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold ${info.color}`}>
                         {info.icon}
@@ -287,8 +499,10 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
                 <TableCell className="py-2 px-3 text-sm">
                   {req.file_path ? (
                     <Button size="sm" variant="secondary" asChild>
-                      <Link to={`/file-viewer?file=${encodeURIComponent(`http://localhost:8000/storage/${req.file_path}`)}`}>
-                        FileViewer
+                      <Link 
+                        to={`/file-viewer?file=${encodeURIComponent(`http://localhost:8000/storage/${req.file_path}`)}&full_name=${encodeURIComponent(req.full_name)}&highlight=${req.id}-${req.type}`}
+                      >
+                        {language === 'ar' ? 'عرض PDF' : 'Afficher PDF'}
                       </Link>
                     </Button>
                   ) : (
@@ -296,15 +510,28 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
                   )}
                 </TableCell>
                 <TableCell className="py-2 px-3 text-sm space-x-2" onClick={e => e.stopPropagation()}>
-                  <Button size="sm" onClick={() => handleUpdateStatus(req.type, req.id, 'approved')}>Approve</Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleDeleteRequest(req)}>Reject</Button>
-                  {req.file_path && ['vacationRequest', 'missionOrder', 'workCertificate'].includes(req.type) && (
-                    <Button size="sm" variant="outline" asChild>
-                      <Link to={`/file-viewer?file=${encodeURIComponent(`http://localhost:8000/storage/${req.file_path}`)}`}>
-                        View File
-                      </Link>
-                    </Button>
-                  )}
+                  {rowStates[uniqueKey] === 'deleted' || req.status === 'rejected' ? (
+                    <span className="text-gray-400 italic opacity-60 select-none">{language === 'ar' ? 'مرفوض' : 'Rejeté'}</span>
+                  ) : req.status === 'approved' && req.file_path ? (
+                    <span className="text-green-600 italic opacity-80 select-none">{language === 'ar' ? 'أُرسل PDF' : 'PDF envoyé'}</span>
+                  ) : req.status === 'waiting_admin_file' ? (
+                    <Button size="sm" onClick={() => setUploadDialog({ open: true, req })}>{language === 'ar' ? 'إضافة ملف' : 'Ajouter un fichier'}</Button>
+                  ) : (!req.status || req.status === 'pending' || req.status === 'urgent') ? (
+                    rowLoading[`${req.id}-${req.type}`] ? (
+                      <div className="flex items-center gap-2">
+                        <svg className="animate-spin h-5 w-5 mr-2 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                        </svg>
+                        <span className="text-gray-500">{language === 'ar' ? 'جاري التنفيذ...' : 'Traitement...'}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <Button size="sm" onClick={() => handleUpdateStatus(req.type, req.id, 'approved')}>{language === 'ar' ? 'قبول' : 'Approve'}</Button>
+                        <Button size="sm" variant="destructive" onClick={() => handleDeleteRequest(req)}>{language === 'ar' ? 'رفض' : 'Reject'}</Button>
+                      </>
+                    )
+                  ) : null}
                 </TableCell>
               </TableRow>
             );
@@ -339,6 +566,33 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
               {t('delete')}
             </button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Dialog رفع ملف PDF أو صورة */}
+      <Dialog open={uploadDialog.open} onOpenChange={open => setUploadDialog({ open, req: open ? uploadDialog.req : null })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{language === 'ar' ? 'تحميل PDF أو صورة' : 'Télécharger un PDF ou une image'}</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={async e => {
+              e.preventDefault();
+              if (!pendingFile || !uploadDialog.req) return;
+              await handleUploadPDF(uploadDialog.req.type, uploadDialog.req.id, pendingFile);
+            }}
+            className="flex flex-col gap-4"
+          >
+            <input
+              type="file"
+              accept=".pdf,image/*"
+              onChange={e => setPendingFile(e.target.files?.[0] || null)}
+              className="block"
+            />
+            <div className="flex gap-2 mt-4">
+              <Button type="submit" disabled={!pendingFile}>{language === 'ar' ? 'إرسال' : 'Envoyer'}</Button>
+              <Button type="button" variant="outline" onClick={() => setUploadDialog({ open: false, req: null })}>{language === 'ar' ? 'إلغاء' : 'Annuler'}</Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

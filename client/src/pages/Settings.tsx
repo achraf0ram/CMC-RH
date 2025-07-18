@@ -19,7 +19,9 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
-import axios from "axios";
+import { axiosInstance } from '../components/Api/axios';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Camera, Upload, Eye, EyeOff } from "lucide-react";
 
 // import { Label } from "@/components/ui/label";
 // import { useToast } from "@/hooks/use-toast";
@@ -49,7 +51,12 @@ const passwordFormSchema = z.object({
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("profile");
-  const { t } = useLanguage();
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { t, language } = useLanguage();
   const { user, isLoading } = useAuth();
   
   const profileForm = useForm<z.infer<typeof profileFormSchema>>({
@@ -96,7 +103,7 @@ const Settings = () => {
   }
 
   function onProfileSubmit(values: z.infer<typeof profileFormSchema>) {
-    axios.put('/api/user/profile', {
+    axiosInstance.put('/user/profile', {
       name: values.name,
       email: values.email,
       phone: values.phone
@@ -116,25 +123,65 @@ const Settings = () => {
   }
 
   function onNotificationsSubmit(values: z.infer<typeof notificationsFormSchema>) {
-    console.log(values);
     toast({
       title: "Les paramètres d'alerte ont été mis à jour",
       description: "Les modifications ont été enregistrées avec succès",
     });
   }
 
-  function onPasswordSubmit(values: z.infer<typeof passwordFormSchema>) {
-    console.log(values);
-    toast({
-      title: "Le mot de passe a été changé",
-      description: "Le mot de passe a été changé avec succès",
-    });
-    passwordForm.reset({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
+  async function onPasswordSubmit(values: z.infer<typeof passwordFormSchema>) {
+    try {
+      await axiosInstance.post('/user/change-password', {
+        current_password: values.currentPassword,
+        new_password: values.newPassword,
+        new_password_confirmation: values.confirmPassword,
+      }, { withCredentials: true });
+      toast({
+        title: language === 'ar' ? "تم تغيير كلمة المرور بنجاح" : "Mot de passe changé avec succès",
+        description: language === 'ar' ? "يمكنك الآن استخدام كلمة المرور الجديدة." : "Vous pouvez maintenant utiliser le nouveau mot de passe.",
+      });
+      passwordForm.reset({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+    } catch (error: any) {
+      const msg = error.response?.data?.message || (language === 'ar' ? "حدث خطأ أثناء تغيير كلمة المرور" : "Une erreur s'est produite lors du changement du mot de passe");
+      toast({
+        title: language === 'ar' ? "خطأ في تغيير كلمة المرور" : "Erreur lors du changement du mot de passe",
+        description: msg,
+        variant: "destructive",
+      });
+    }
   }
+
+  const handleProfilePhotoUpload = async () => {
+    if (!profilePhoto) return;
+    
+    setIsUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('profile_photo', profilePhoto);
+      
+      await axiosInstance.post('/user/profile-photo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      
+      toast({
+        title: "Photo de profil mise à jour",
+        description: "Votre photo de profil a été mise à jour avec succès",
+      });
+      
+      setProfilePhoto(null);
+    } catch (error) {
+      toast({
+        title: "Erreur lors de la mise à jour",
+        description: "Impossible de mettre à jour la photo de profil",
+      });
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 p-4">
@@ -178,6 +225,40 @@ const Settings = () => {
               <TabsContent value="profile">
                 <Form {...profileForm}>
                   <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-6">
+                    {/* Profile Photo Section */}
+                    <div className="flex flex-col items-center space-y-4 p-6 border border-blue-200 rounded-lg bg-blue-50/30">
+                      <div className="relative">
+                        <Avatar className="w-24 h-24">
+                          <AvatarImage src={user?.profile_photo_url} alt={user?.name} />
+                          <AvatarFallback className="text-2xl">{user?.name?.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <label htmlFor="profile-photo-upload" className="absolute bottom-0 right-0 bg-blue-600 text-white rounded-full p-2 cursor-pointer hover:bg-blue-700 transition-colors">
+                          <Camera className="w-4 h-4" />
+                        </label>
+                        <input
+                          id="profile-photo-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => setProfilePhoto(e.target.files?.[0] || null)}
+                        />
+                      </div>
+                      
+                      {profilePhoto && (
+                        <div className="flex flex-col items-center space-y-2">
+                          <p className="text-sm text-gray-600">Photo sélectionnée: {profilePhoto.name}</p>
+                          <Button
+                            type="button"
+                            onClick={handleProfilePhotoUpload}
+                            disabled={isUploadingPhoto}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                          >
+                            {isUploadingPhoto ? "Mise à jour..." : "Mettre à jour la photo"}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
                     <div className="grid gap-6 sm:grid-cols-2">
                       <FormField
                         control={profileForm.control}
@@ -328,7 +409,12 @@ const Settings = () => {
                           <FormItem>
                             <FormLabel className="text-slate-700 font-medium">{t('currentPassword')}</FormLabel>
                             <FormControl>
-                              <Input type="password" {...field} className="border-blue-300 focus:border-blue-500 focus:ring-blue-200" />
+                              <div className="relative">
+                                <Input type={showCurrentPassword ? "text" : "password"} {...field} className="border-blue-300 focus:border-blue-500 focus:ring-blue-200 pr-10" />
+                                <button type="button" onClick={() => setShowCurrentPassword(v => !v)} className="absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 focus:outline-none">
+                                  {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
+                              </div>
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -342,7 +428,12 @@ const Settings = () => {
                           <FormItem>
                             <FormLabel className="text-slate-700 font-medium">{t('newPassword')}</FormLabel>
                             <FormControl>
-                              <Input type="password" {...field} className="border-blue-300 focus:border-blue-500 focus:ring-blue-200" />
+                              <div className="relative">
+                                <Input type={showNewPassword ? "text" : "password"} {...field} className="border-blue-300 focus:border-blue-500 focus:ring-blue-200 pr-10" />
+                                <button type="button" onClick={() => setShowNewPassword(v => !v)} className="absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 focus:outline-none">
+                                  {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
+                              </div>
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -356,7 +447,12 @@ const Settings = () => {
                           <FormItem>
                             <FormLabel className="text-slate-700 font-medium">{t('confirmPassword')}</FormLabel>
                             <FormControl>
-                              <Input type="password" {...field} className="border-blue-300 focus:border-blue-500 focus:ring-blue-200" />
+                              <div className="relative">
+                                <Input type={showConfirmPassword ? "text" : "password"} {...field} className="border-blue-300 focus:border-blue-500 focus:ring-blue-200 pr-10" />
+                                <button type="button" onClick={() => setShowConfirmPassword(v => !v)} className="absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 focus:outline-none">
+                                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                </button>
+                              </div>
                             </FormControl>
                             <FormMessage />
                           </FormItem>
