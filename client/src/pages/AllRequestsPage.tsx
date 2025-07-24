@@ -135,7 +135,7 @@ const AllRequestsPage = () => {
       let url = '';
       let fileName = '';
       if (req.type === 'missionOrder') {
-        url = `/download-pdf-db/${req.id}`;
+        url = `/mission-orders/download-db/${req.id}`;
         fileName = `ORDRE_DE_MISSION_${req.full_name || req.monsieur_madame || 'user'}.pdf`;
       } else if (req.type === 'workCertificate') {
         url = `/work-certificates/download-db/${req.id}`;

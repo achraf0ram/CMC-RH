@@ -88,9 +88,14 @@ class MissionOrderController extends Controller
                 if ($request->hasFile('pdf')) {
                     $file = $request->file('pdf');
                     $file->storeAs('public/' . $dir, $fileName);
+                    // حفظ نسخة من محتوى الملف في قاعدة البيانات
+                    $pdfBlob = file_get_contents($file->getRealPath());
+                    $missionOrder->pdf_blob = $pdfBlob;
                 } elseif ($request->filled('pdf_base64')) {
                     $pdfData = base64_decode($request->input('pdf_base64'));
                     \Storage::disk('public')->put($dir . '/' . $fileName, $pdfData);
+                    // حفظ نسخة من محتوى الملف في قاعدة البيانات
+                    $missionOrder->pdf_blob = $pdfData;
                 }
 
                 $filePath = $dir . '/' . $fileName;
