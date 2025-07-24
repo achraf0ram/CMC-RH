@@ -11,21 +11,31 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('vacation_requests', function (Blueprint $table) {
-            $table->string('type')->nullable();
-        });
-        Schema::table('work_certificates', function (Blueprint $table) {
-            $table->string('type')->nullable();
-        });
-        Schema::table('mission_orders', function (Blueprint $table) {
-            $table->string('type')->nullable();
-        });
-        Schema::table('salary_domiciliations', function (Blueprint $table) {
-            $table->string('type')->nullable();
-        });
-        Schema::table('annual_incomes', function (Blueprint $table) {
-            $table->string('type')->nullable();
-        });
+        if (!Schema::hasColumn('vacation_requests', 'type')) {
+            Schema::table('vacation_requests', function (Blueprint $table) {
+                $table->string('type')->nullable();
+            });
+        }
+        if (!Schema::hasColumn('work_certificates', 'type')) {
+            Schema::table('work_certificates', function (Blueprint $table) {
+                $table->string('type')->nullable();
+            });
+        }
+        if (!Schema::hasColumn('mission_orders', 'type')) {
+            Schema::table('mission_orders', function (Blueprint $table) {
+                $table->string('type')->nullable();
+            });
+        }
+        if (!Schema::hasColumn('salary_domiciliations', 'type')) {
+            Schema::table('salary_domiciliations', function (Blueprint $table) {
+                $table->string('type')->nullable();
+            });
+        }
+        if (!Schema::hasColumn('annual_incomes', 'type')) {
+            Schema::table('annual_incomes', function (Blueprint $table) {
+                $table->string('type')->nullable();
+            });
+        }
     }
 
     /**
@@ -33,20 +43,30 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('vacation_requests', function (Blueprint $table) {
-            $table->dropColumn('type');
-        });
-        Schema::table('work_certificates', function (Blueprint $table) {
-            $table->dropColumn('type');
-        });
-        Schema::table('mission_orders', function (Blueprint $table) {
-            $table->dropColumn('type');
-        });
-        Schema::table('salary_domiciliations', function (Blueprint $table) {
-            $table->dropColumn('type');
-        });
-        Schema::table('annual_incomes', function (Blueprint $table) {
-            $table->dropColumn('type');
-        });
+        if (Schema::hasColumn('vacation_requests', 'type')) {
+            Schema::table('vacation_requests', function (Blueprint $table) {
+                $table->dropColumn('type');
+            });
+        }
+        if (Schema::hasColumn('work_certificates', 'type')) {
+            Schema::table('work_certificates', function (Blueprint $table) {
+                $table->dropColumn('type');
+            });
+        }
+        if (Schema::hasColumn('mission_orders', 'type')) {
+            Schema::table('mission_orders', function (Blueprint $table) {
+                $table->dropColumn('type');
+            });
+        }
+        if (Schema::hasColumn('salary_domiciliations', 'type')) {
+            Schema::table('salary_domiciliations', function (Blueprint $table) {
+                $table->dropColumn('type');
+            });
+        }
+        if (Schema::hasColumn('annual_incomes', 'type')) {
+            Schema::table('annual_incomes', function (Blueprint $table) {
+                $table->dropColumn('type');
+            });
+        }
     }
 };

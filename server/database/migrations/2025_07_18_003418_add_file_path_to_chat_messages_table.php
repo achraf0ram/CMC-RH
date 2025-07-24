@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('chat_messages', function (Blueprint $table) {
-            $table->string('file_path')->nullable()->after('image_path');
-            $table->string('file_type')->nullable()->after('file_path'); // pdf, doc, etc.
+            $table->string('file_path')->nullable();
+            $table->string('file_type')->nullable(); // pdf, doc, etc.
         });
     }
 

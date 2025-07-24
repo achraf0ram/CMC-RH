@@ -7,15 +7,17 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up()
     {
-        Schema::table('chat_messages', function (Blueprint $table) {
-            $table->text('message')->nullable()->change();
+        // حذف الجدول بالكامل إذا كان موجودًا
+        Schema::dropIfExists('chat_messages');
+        // إعادة إنشاء الجدول من جديد
+        Schema::create('chat_messages', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('from_user_id');
+            $table->unsignedBigInteger('to_user_id');
+            $table->text('message')->nullable();
+            $table->timestamps();
         });
     }
 
-    public function down()
-    {
-        Schema::table('chat_messages', function (Blueprint $table) {
-            $table->text('message')->nullable(false)->change();
-        });
-    }
+    // احذف دالة down بالكامل لأنها تسبب الخطأ
 }; 

@@ -7,11 +7,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('ALTER TABLE vacation_requests ADD pdf_blob LONGBLOB NULL AFTER file_path');
+        DB::statement('ALTER TABLE mission_orders ADD pdf_blob LONGBLOB NULL AFTER file_path');
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE vacation_requests DROP COLUMN pdf_blob');
+        DB::statement('ALTER TABLE mission_orders DROP COLUMN pdf_blob');
     }
 }; 

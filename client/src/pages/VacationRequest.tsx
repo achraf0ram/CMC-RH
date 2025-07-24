@@ -206,12 +206,6 @@ const VacationRequest = () => {
     const echo = createEcho(token);
     if (!echo) return;
     const channel = echo.channel('requests');
-    channel.listen('NewRequest', (data: any) => {
-      setRequests((prev: any[]) => [data.requestData, ...prev]);
-    });
-    channel.listen('RequestStatusUpdated', (data: any) => {
-      setRequests((prev: any[]) => prev.map(r => r.id === data.requestId ? { ...r, status: data.newStatus } : r));
-    });
     return () => {
       echo.leave('requests');
     };
@@ -224,9 +218,11 @@ const VacationRequest = () => {
       reader.onloadend = () => {
         const result = reader.result as string;
         setSignaturePreview(result);
-        form.setValue("signature", result);
+        form.setValue("signature", result || 'no-signature');
       };
       reader.readAsDataURL(file);
+    } else {
+      form.setValue("signature", 'no-signature');
     }
   };
 
@@ -250,6 +246,7 @@ const VacationRequest = () => {
       const pdfBlob = await generatePDFBlob(values);
       // 2. إنشاء ملف PDF من Blob
       const pdfFile = new File([pdfBlob], `demande_conge_${values.fullName || 'user'}.pdf`, { type: 'application/pdf' });
+      console.log('pdfFile:', pdfFile, 'size:', pdfFile.size);
       // 3. تجهيز FormData
       const formData = new FormData();
       formData.append('fullName', String(values.fullName || ''));
@@ -277,10 +274,15 @@ const VacationRequest = () => {
       formData.append('interim', String(values.interim || ''));
       formData.append('arabicInterim', String(values.arabicInterim || ''));
       formData.append('leaveMorocco', values.leaveMorocco ? '1' : '0');
-      formData.append('signature', String(values.signature || ''));
-      formData.append('type', 'vacationRequest');
+      // معالجة التوقيع: دومًا أرسل كنص base64 فقط
+      formData.append('signature', typeof values.signature === 'string' ? values.signature : 'no-signature');
+      // PDF فقط كـ File
       formData.append('pdf', pdfFile);
+      formData.append('type', 'vacationRequest');
       formData.append('status', values.status || 'pending');
+      for (let [key, value] of formData.entries()) {
+        console.log(key, value);
+      }
       // 4. إرسال الطلب مع الملف
       const response = await axiosInstance.post("http://localhost:8000/api/vacation-requests", formData, {
         withCredentials: true,
@@ -336,21 +338,32 @@ const VacationRequest = () => {
           img.onload = () => {
             doc.addImage(img, "PNG", 10, 4, 66, 20);
             addContent(doc, data, () => {
+              // إضافة صورة التوقيع إذا كانت موجودة
+              if (typeof data.signature === 'string' && data.signature.startsWith('data:image')) {
+                // x, y, width, height: عدل القيم حسب الحاجة
+                doc.addImage(data.signature, 'PNG', 20, 250, 50, 20);
+              }
               resolve(doc.output('blob'));
             });
           }
           img.onerror = () => {
             addContent(doc, data, () => {
+              if (typeof data.signature === 'string' && data.signature.startsWith('data:image')) {
+                doc.addImage(data.signature, 'PNG', 20, 250, 50, 20);
+              }
               resolve(doc.output('blob'));
             });
-          };
+          }
         } else {
           addContent(doc, data, () => {
+            if (typeof data.signature === 'string' && data.signature.startsWith('data:image')) {
+              doc.addImage(data.signature, 'PNG', 20, 250, 50, 20);
+            }
             resolve(doc.output('blob'));
           });
         }
-      } catch (error) {
-        resolve(new Blob());
+      } catch {
+        resolve(void 0);
       }
     });
   };

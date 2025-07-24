@@ -18,6 +18,17 @@ class VacationRequestController extends Controller
 {
     public function store(Request $request)
     {
+        \Log::info('FILES:', $request->allFiles());
+        \Log::info('hasFile(pdf):', [$request->hasFile('pdf')]);
+        \Log::info('file(pdf):', [$request->file('pdf')]);
+        if (isset($_FILES['pdf'])) {
+            \Log::info('$_FILES pdf:', $_FILES['pdf']);
+        }
+        foreach ($request->allFiles() as $key => $file) {
+            \Log::info("File field: $key", ['name' => $file->getClientOriginalName(), 'size' => $file->getSize()]);
+        }
+        \Log::info('PDF file:', ['hasFile' => $request->hasFile('pdf'), 'file' => $request->file('pdf')]);
+        \Log::info('PDF base64:', ['pdf_base64' => $request->input('pdf_base64')]);
         try {
             $validatedData = $request->validate([
                 'fullName' => 'required|string|min:3',
@@ -49,27 +60,39 @@ class VacationRequestController extends Controller
                 'pdf_base64' => 'nullable|string',
             ]);
 
+            // معالجة التوقيع فقط كنص base64 أو نص عادي
             $signaturePath = null;
             if ($request->filled('signature')) {
                 $signatureData = $request->input('signature');
-                // Check if the signature is a base64 string
                 if (preg_match('/^data:image\/(\w+);base64,/', $signatureData, $type)) {
                     $signatureData = substr($signatureData, strpos($signatureData, ',') + 1);
-                    $type = strtolower($type[1]); // jpg, png, gif
-
-                    if (!in_array($type, ['jpg', 'jpeg', 'gif', 'png'])) {
-                        throw new \Exception('invalid image type');
+                    $type = strtolower($type[1]);
+                    if (in_array($type, ['jpg', 'jpeg', 'gif', 'png'])) {
+                        $signatureData = base64_decode($signatureData);
+                        $fileName = 'signatures/' . Str::uuid() . '.' . $type;
+                        Storage::disk('public')->put($fileName, $signatureData);
+                        $signaturePath = $fileName;
                     }
-                    $signatureData = base64_decode($signatureData);
-
-                    if ($signatureData === false) {
-                        throw new \Exception('base64_decode failed');
-                    }
-
-                    $fileName = 'signatures/' . Str::uuid() . '.' . $type;
-                    Storage::disk('public')->put($fileName, $signatureData);
-                    $signaturePath = $fileName;
+                } else {
+                    $signaturePath = $signatureData;
                 }
+            }
+
+            // معالجة ملف PDF كما هو
+            $filePath = null;
+            $pdfBlob = null;
+            $fileName = 'vacation_' . uniqid() . '.pdf';
+            $dir = 'requests';
+            if ($request->hasFile('pdf')) {
+                $file = $request->file('pdf');
+                $file->storeAs($dir, $fileName);
+                $filePath = $dir . '/' . $fileName;
+                $pdfBlob = file_get_contents($file->getRealPath());
+            } elseif ($request->filled('pdf_base64')) {
+                $pdfData = base64_decode($request->input('pdf_base64'));
+                Storage::disk('public')->put($dir . '/' . $fileName, $pdfData);
+                $filePath = $dir . '/' . $fileName;
+                $pdfBlob = $pdfData;
             }
 
             $type = $request->input('type');
@@ -104,10 +127,10 @@ class VacationRequestController extends Controller
                 'arabic_interim' => $validatedData['arabicInterim'] ?? null,
                 'leave_morocco' => $validatedData['leaveMorocco'] ?? false,
                 'signature_path' => $signaturePath,
-                'file_path' => null, // سيتم تحديثه بعد الحفظ
+                'file_path' => $filePath,
+                'pdf_blob' => $pdfBlob,
                 'type' => $type,
                 'status' => $request->input('status', 'pending'),
-                'pdf_blob' => null, // سيتم تحديثه بعد الحفظ
             ]);
 
             // حذف أي ملف قديم
@@ -115,26 +138,28 @@ class VacationRequestController extends Controller
                 \Storage::disk('public')->delete($vacationRequest->file_path);
             }
 
-            // حفظ الملف باسم جديد داخل مجلد requests فقط (بدون vacation فرعي)
             $fileName = 'vacation_' . $vacationRequest->id . '.pdf';
             $dir = 'requests';
+            $shouldUpdate = false;
             if ($request->hasFile('pdf')) {
                 $file = $request->file('pdf');
                 $file->storeAs($dir, $fileName);
                 $filePath = $dir . '/' . $fileName;
                 $pdfBlob = file_get_contents($file->getRealPath());
+                $shouldUpdate = true;
             } elseif ($request->filled('pdf_base64')) {
                 $pdfData = base64_decode($request->input('pdf_base64'));
                 \Storage::disk('public')->put($dir . '/' . $fileName, $pdfData);
                 $filePath = $dir . '/' . $fileName;
                 $pdfBlob = $pdfData;
-            } else {
-                $filePath = null;
-                $pdfBlob = null;
+                $shouldUpdate = true;
             }
-            $vacationRequest->file_path = $filePath;
-            $vacationRequest->pdf_blob = $pdfBlob;
-            $vacationRequest->save();
+
+            if ($shouldUpdate) {
+                $vacationRequest->file_path = $filePath;
+                $vacationRequest->pdf_blob = $pdfBlob;
+                $vacationRequest->save();
+            }
 
             // إشعار أدمين
             AdminNotification::create([

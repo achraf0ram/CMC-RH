@@ -12,9 +12,31 @@ use App\Models\AdminNotification;
 
 class MissionOrderController extends Controller
 {
-    public function store(Request $request)
+    public function index()
     {
         try {
+            $missionOrders = MissionOrder::orderBy('created_at', 'desc')->get();
+            return response()->json($missionOrders);
+        } catch (\Exception $e) {
+            Log::error('Error fetching mission orders', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['message' => 'An error occurred while fetching mission orders.'], 500);
+        }
+    }
+
+    public function store(Request $request)
+    {
+        \Log::info('MissionOrder store method called', [
+            'request_data' => $request->all(),
+            'files' => $request->hasFile('pdf') ? 'PDF file present' : 'No PDF file',
+            'pdf_base64' => $request->filled('pdf_base64') ? 'PDF base64 present' : 'No PDF base64'
+        ]);
+        
+        try {
+            \Log::info('Validating request data', ['request_data' => $request->all()]);
+            
             $validatedData = $request->validate([
                 'monsieurMadame' => 'required|string|min:3',
                 'matricule' => 'required|string|min:1',
@@ -28,29 +50,10 @@ class MissionOrderController extends Controller
                 'endTime' => 'nullable|date_format:H:i',
                 'additionalInfo' => 'nullable|string',
             ]);
-
-            // دائماً نحفظ ملف PDF في storage/app/public/requests/اسم_الملف.pdf
-            $filePath = null;
-            $pdfBlob = null;
-            if ($request->hasFile('pdf')) {
-                $file = $request->file('pdf');
-                $fileName = 'mission_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                $file->storeAs('public/requests', $fileName); // حفظ في المسار الموحد
-                $filePath = 'requests/' . $fileName;
-                $pdfBlob = file_get_contents($file->getRealPath());
-            }
-            if ($request->filled('pdf_base64')) {
-                $pdfData = base64_decode($request->input('pdf_base64'));
-                $fileName = 'mission_' . uniqid() . '.pdf';
-                \Storage::disk('public')->put('requests/' . $fileName, $pdfData); // حفظ في المسار الموحد
-                $filePath = 'requests/' . $fileName;
-                $pdfBlob = $pdfData;
-            }
-
-            $type = $request->input('type');
-            if (!$type || !in_array($type, ['missionOrder'])) {
-                $type = 'missionOrder';
-            }
+            
+            \Log::info('Validation passed successfully', ['validated_data' => $validatedData]);
+            
+            \Log::info('Validation passed', ['validated_data' => $validatedData]);
 
             $missionOrder = MissionOrder::create([
                 'user_id' => Auth::id(),
@@ -65,38 +68,36 @@ class MissionOrderController extends Controller
                 'start_time' => $validatedData['startTime'] ?? null,
                 'end_time' => $validatedData['endTime'] ?? null,
                 'additional_info' => $validatedData['additionalInfo'] ?? null,
-                'type' => $type,
+                'type' => 'missionOrder',
                 'full_name' => $validatedData['monsieurMadame'],
-                'file_path' => null, // سيتم تحديثه بعد الحفظ
-                'pdf_blob' => null,
+                'file_path' => null, // سيتم تحديثه بعد قليل
                 'status' => $request->input('status', 'pending'),
             ]);
+            
+            \Log::info('MissionOrder created successfully', ['id' => $missionOrder->id]);
 
-            // حذف أي ملف قديم
-            if ($missionOrder->file_path && \Storage::disk('public')->exists($missionOrder->file_path)) {
-                \Storage::disk('public')->delete($missionOrder->file_path);
-            }
+            // --- توحيد معالجة الملفات ---
+            $filePath = null;
+            if ($request->hasFile('pdf') || $request->filled('pdf_base64')) {
+                
+                $fullName = preg_replace('/[^a-zA-Z0-9\s]/', '', $validatedData['monsieurMadame']);
+                $fullName = str_replace(' ', '_', trim($fullName));
+                $fileName = 'Ordre_Mission_' . $validatedData['matricule'] . '_' . $fullName . '.pdf';
+                $dir = 'requests'; // المجلد الموحد
 
-            // حفظ الملف باسم جديد داخل مجلد requests فقط (بدون mission فرعي)
-            $fileName = 'mission_' . $missionOrder->id . '.pdf';
-            $dir = 'requests';
-            if ($request->hasFile('pdf')) {
-                $file = $request->file('pdf');
-                $file->storeAs('public/' . $dir, $fileName);
+                if ($request->hasFile('pdf')) {
+                    $file = $request->file('pdf');
+                    $file->storeAs('public/' . $dir, $fileName);
+                } elseif ($request->filled('pdf_base64')) {
+                    $pdfData = base64_decode($request->input('pdf_base64'));
+                    \Storage::disk('public')->put($dir . '/' . $fileName, $pdfData);
+                }
+
                 $filePath = $dir . '/' . $fileName;
-                $pdfBlob = file_get_contents($file->getRealPath());
-            } elseif ($request->filled('pdf_base64')) {
-                $pdfData = base64_decode($request->input('pdf_base64'));
-                \Storage::disk('public')->put($dir . '/' . $fileName, $pdfData);
-                $filePath = $dir . '/' . $fileName;
-                $pdfBlob = $pdfData;
-            } else {
-                $filePath = null;
-                $pdfBlob = null;
+                $missionOrder->file_path = $filePath;
+                $missionOrder->save();
             }
-            $missionOrder->file_path = $filePath;
-            $missionOrder->pdf_blob = $pdfBlob;
-            $missionOrder->save();
+            // --- نهاية معالجة الملفات ---
 
             // إضافة معلومات الملف للاستجابة
             $fileInfo = null;
@@ -112,6 +113,7 @@ class MissionOrderController extends Controller
             }
 
             // إشعار أدمين
+            \Log::info('Creating admin notification');
             AdminNotification::create([
                 'title' => 'طلب أمر مهمة جديد',
                 'title_fr' => 'Nouvelle demande d\'ordre de mission',
@@ -124,6 +126,7 @@ class MissionOrderController extends Controller
                     'user_id' => \Auth::id(),
                 ]),
             ]);
+            \Log::info('Admin notification created');
 
             // إشعار للمستخدم
             \App\Models\UserNotification::create([
@@ -137,7 +140,18 @@ class MissionOrderController extends Controller
                 'data' => json_encode(['mission_order_id' => $missionOrder->id]),
             ]);
 
+            // إرسال إشعار لحظي للمستخدم
+            $notification = \App\Models\UserNotification::where('user_id', Auth::id())
+                ->where('type', 'missionOrder')
+                ->latest()
+                ->first();
+            
+            if ($notification) {
+                event(new \App\Events\NewUserNotification($notification, Auth::id()));
+            }
+
             // إرسال إشعار لحظي عبر WebSocket
+            \Log::info('Broadcasting notification event');
             event(new \App\Events\NewNotification([
                 'id' => $missionOrder->id,
                 'title' => 'تم حفظ أمر المهمة بنجاح',
@@ -145,12 +159,18 @@ class MissionOrderController extends Controller
                 'type' => 'missionOrder',
                 'user_id' => Auth::id(),
             ]));
+            \Log::info('Notification event broadcasted');
 
             Log::info('Mission order stored successfully', ['id' => $missionOrder->id]);
 
+            \Log::info('Preparing response', [
+                'file_path' => $missionOrder->file_path,
+                'file_info' => $fileInfo
+            ]);
+
             return response()->json([
                 'message' => 'Mission order submitted successfully!',
-                'data' => $missionOrder->makeHidden('pdf_blob')->setAttribute('pdf_url', url('storage/requests/' . basename($missionOrder->file_path))),
+                'data' => $missionOrder->makeHidden('pdf_blob')->setAttribute('pdf_url', $missionOrder->file_path ? url('storage/' . $missionOrder->file_path) : null),
                 'file_info' => $fileInfo,
             ], 201);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -159,9 +179,11 @@ class MissionOrderController extends Controller
         } catch (\Exception $e) {
             Log::error('Error storing mission order', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
             ]);
-            return response()->json(['message' => 'An error occurred while submitting the request.'], 500);
+            return response()->json(['message' => 'An error occurred while submitting the request.', 'error' => $e->getMessage()], 500);
         }
     }
 

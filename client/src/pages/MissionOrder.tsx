@@ -99,13 +99,14 @@ const MissionOrder = () => {
     setIsGenerating(true);
     try {
       // Step 1: Generate PDF and convert to base64
-      const pdfBase64 = await generatePDF(values);
-      
+      const pdfBase64 = await generatePDF(values); // استخدم القيم الأصلية (Date)
       // Step 2: Send data with PDF to the backend
-      const response = await axiosInstance.post('mission-orders', { 
-        ...values, 
+      const response = await axiosInstance.post('mission-orders', {
+        ...values,
+        startDate: values.startDate ? new Date(values.startDate).toISOString().slice(0, 10) : '',
+        endDate: values.endDate ? new Date(values.endDate).toISOString().slice(0, 10) : '',
         type: 'missionOrder',
-        pdf_base64: pdfBase64 
+        pdf_base64: pdfBase64
       });
 
 
