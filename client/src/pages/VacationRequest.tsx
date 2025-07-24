@@ -206,6 +206,12 @@ const VacationRequest = () => {
     const echo = createEcho(token);
     if (!echo) return;
     const channel = echo.channel('requests');
+    channel.listen('NewRequest', (data: any) => {
+      setRequests((prev: any[]) => [data.requestData, ...prev]);
+    });
+    channel.listen('RequestStatusUpdated', (data: any) => {
+      setRequests((prev: any[]) => prev.map(r => r.id === data.requestId ? { ...r, status: data.newStatus } : r));
+    });
     return () => {
       echo.leave('requests');
     };
@@ -218,11 +224,9 @@ const VacationRequest = () => {
       reader.onloadend = () => {
         const result = reader.result as string;
         setSignaturePreview(result);
-        form.setValue("signature", result || 'no-signature');
+        form.setValue("signature", result);
       };
       reader.readAsDataURL(file);
-    } else {
-      form.setValue("signature", 'no-signature');
     }
   };
 
@@ -246,7 +250,19 @@ const VacationRequest = () => {
       const pdfBlob = await generatePDFBlob(values);
       // 2. إنشاء ملف PDF من Blob
       const pdfFile = new File([pdfBlob], `demande_conge_${values.fullName || 'user'}.pdf`, { type: 'application/pdf' });
-      console.log('pdfFile:', pdfFile, 'size:', pdfFile.size);
+      // 2.1 تحويل Blob إلى base64
+      const blobToBase64 = (blob: Blob): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64data = reader.result?.toString().split(',')[1] || '';
+            resolve(base64data);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      };
+      const pdfBase64 = await blobToBase64(pdfBlob);
       // 3. تجهيز FormData
       const formData = new FormData();
       formData.append('fullName', String(values.fullName || ''));
@@ -274,33 +290,30 @@ const VacationRequest = () => {
       formData.append('interim', String(values.interim || ''));
       formData.append('arabicInterim', String(values.arabicInterim || ''));
       formData.append('leaveMorocco', values.leaveMorocco ? '1' : '0');
-      // معالجة التوقيع: دومًا أرسل كنص base64 فقط
-      formData.append('signature', typeof values.signature === 'string' ? values.signature : 'no-signature');
-      // PDF فقط كـ File
-      formData.append('pdf', pdfFile);
+      formData.append('signature', String(values.signature || ''));
       formData.append('type', 'vacationRequest');
+      formData.append('pdf', pdfFile);
       formData.append('status', values.status || 'pending');
-      for (let [key, value] of formData.entries()) {
-        console.log(key, value);
-      }
+      // أضف نسخة base64 من PDF
+      formData.append('pdf_base64', pdfBase64);
       // 4. إرسال الطلب مع الملف
       const response = await axiosInstance.post("http://localhost:8000/api/vacation-requests", formData, {
         withCredentials: true,
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       // 5. تحميل PDF محلياً للمستخدم
-    setIsSubmitted(true);
+      setIsSubmitted(true);
       setLastSubmittedRequest(response.data.data || values);
       setPdfBlob(pdfBlob);
       setSuccessData(response.data.data); // Save the response for the success message
-        toast({
+      toast({
         title: language === 'ar' ? "📤 تم الإرسال" : "📤 Envoyé à l'admin",
         description: language === 'ar'
           ? "تم إرسال الطلب إلى الإدارة بنجاح"
           : "Les demandes ont été envoyées à l'administration avec succès",
-          variant: "default",
-          className: "bg-green-50 border-green-200",
-        });
+        variant: "default",
+        className: "bg-green-50 border-green-200",
+      });
     } catch (error) {
       if (axios.isAxiosError(error) && error.response) {
         toast({
@@ -324,7 +337,6 @@ const VacationRequest = () => {
     return new Promise((resolve) => {
       try {
         const doc = new jsPDF();
-        
         // إعداد الخط العربي
         doc.addFileToVFS("Amiri-Regular.ttf", AmiriFont as unknown as string);
         doc.addFileToVFS("Amiri-Bold.ttf", AmiriBoldFont as unknown as string);
@@ -338,32 +350,21 @@ const VacationRequest = () => {
           img.onload = () => {
             doc.addImage(img, "PNG", 10, 4, 66, 20);
             addContent(doc, data, () => {
-              // إضافة صورة التوقيع إذا كانت موجودة
-              if (typeof data.signature === 'string' && data.signature.startsWith('data:image')) {
-                // x, y, width, height: عدل القيم حسب الحاجة
-                doc.addImage(data.signature, 'PNG', 20, 250, 50, 20);
-              }
               resolve(doc.output('blob'));
             });
           }
           img.onerror = () => {
             addContent(doc, data, () => {
-              if (typeof data.signature === 'string' && data.signature.startsWith('data:image')) {
-                doc.addImage(data.signature, 'PNG', 20, 250, 50, 20);
-              }
               resolve(doc.output('blob'));
             });
-          }
+          };
         } else {
           addContent(doc, data, () => {
-            if (typeof data.signature === 'string' && data.signature.startsWith('data:image')) {
-              doc.addImage(data.signature, 'PNG', 20, 250, 50, 20);
-            }
             resolve(doc.output('blob'));
           });
         }
-      } catch {
-        resolve(void 0);
+      } catch (error) {
+        resolve(new Blob());
       }
     });
   };
@@ -753,11 +754,7 @@ for (let i = 0; i < arabicNotes.length; i++) {
           title={language === 'ar' ? 'تم إرسال الطلب بنجاح' : 'Demande envoyée avec succès'}
           description={language === 'ar' ? 'تم حفظ طلبك وسيتم معالجته قريباً.' : 'Votre demande a été enregistrée et sera traitée prochainement.'}
           primaryButtonText={language === 'ar' ? 'طلب جديد' : 'Nouvelle demande'}
-          onPrimary={() => {
-            setIsSubmitted(false);
-            setShowCustomLeaveType(false);
-            form.reset();
-          }}
+          onPrimary={() => window.location.reload()}
           secondaryButtonText={language === 'ar' ? 'عرض جميع الطلبات' : 'Voir tous les demandes'}
           onSecondary={() => {
             toast({

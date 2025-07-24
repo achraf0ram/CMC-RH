@@ -365,12 +365,7 @@ doc.text(format(data.endDate, "yyyy-MM-dd"), col1X + 45, startY + rowHeight * 5.
           title={language === 'ar' ? 'تم إرسال الطلب بنجاح' : 'Demande envoyée avec succès'}
           description={language === 'ar' ? 'تم حفظ أمر المهمة وسيتم معالجته قريباً.' : 'Votre demande a été enregistrée et sera traitée prochainement.'}
           primaryButtonText={language === 'ar' ? 'طلب جديد' : 'Nouvelle demande'}
-          onPrimary={() => {
-                    setIsSubmitted(false);
-                    form.reset();
-                    setLastSubmittedOrder(null);
-                    setFileInfo(null);
-          }}
+          onPrimary={() => window.location.reload()}
           secondaryButtonText={language === 'ar' ? 'عرض جميع الطلبات' : 'Voir tous les demandes'}
           onSecondary={() => {
                       toast({

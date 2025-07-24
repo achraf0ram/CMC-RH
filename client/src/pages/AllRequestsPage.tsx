@@ -533,6 +533,19 @@ const AllRequestsPage = () => {
               <Eye className="h-5 w-5" />
               {pdfLoading ? (language === 'ar' ? 'جاري التحميل...' : 'Chargement...') : (language === 'ar' ? 'عرض PDF' : 'Afficher PDF')}
             </button>
+            {/* زر تحميل PDF مباشرة */}
+            {selectedRequest?.file_path && (
+              <button
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white font-semibold shadow disabled:opacity-60"
+                onClick={() => handleDownload(selectedRequest)}
+                disabled={downloadingId === selectedRequest.id}
+              >
+                <Download className="h-5 w-5" />
+                {downloadingId === selectedRequest.id
+                  ? (language === 'ar' ? 'جاري التحميل...' : 'Téléchargement...')
+                  : (language === 'ar' ? 'تحميل PDF' : 'Télécharger PDF')}
+              </button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
