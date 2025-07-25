@@ -450,22 +450,56 @@ export const AppHeader = () => {
     }
   };
 
-  const getNotifTitleColor = (notif: any) => {
-    const status = notif.status || notif.request_status || '';
-    if (status === 'approved') return 'text-green-700';
-    if (status === 'rejected') return 'text-red-700';
-    if (status === 'waiting_admin_file') return 'text-orange-600';
-    if (status === 'pending' || status === '') return 'text-blue-700';
-    // إذا لم يكن حالة، استخدم نوع الطلب
-    switch (notif.type) {
-      case 'vacationRequest': return 'text-blue-700';
-      case 'workCertificate': return 'text-green-700';
-      case 'missionOrder': return 'text-purple-700';
-      case 'salaryDomiciliation': return 'text-cyan-700';
-      case 'annualIncome': return 'text-orange-700';
-      default: return 'text-gray-800';
+  // أعد دالة getUserNotifTitle كما كانت:
+  function getUserNotifTitle(notif: any, language: string) {
+    const typeMap: any = {
+      workCertificate: language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
+      vacationRequest: language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
+      missionOrder: language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
+      salaryDomiciliation: language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
+      annualIncome: language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
+      work_certificates: language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
+      vacation_requests: language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
+      mission_orders: language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
+      salary_domiciliations: language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
+      annual_incomes: language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
+    };
+    if (notif.type && typeMap[notif.type]) return typeMap[notif.type];
+    if (notif.data) {
+      try {
+        const data = typeof notif.data === 'string' ? JSON.parse(notif.data) : notif.data;
+        if (data.request_type && typeMap[data.request_type]) return typeMap[data.request_type];
+      } catch {}
     }
-  };
+    // إذا لم تجد أي نوع، استخدم العنوان الافتراضي
+    return (language === 'ar' ? notif.title_ar : notif.title_fr) || (language === 'ar' ? 'طلب جديد' : 'Nouvelle demande');
+  }
+
+  // أعد دالة اللون القديمة:
+  function getNotifTitleColorUser(notif: any, language: string) {
+    const status = notif.status || notif.request_status || '';
+    const title = (language === 'ar' ? notif.title_ar : notif.title_fr || '').toLowerCase();
+    if (/تم تجهيز ملفك من الإدارة|votre fichier est prêt/i.test(title)) return 'text-green-700';
+    if (/تم قبول طلبك، بانتظار رفع ملف الإدارة|acceptée, en attente du fichier/i.test(title)) return 'text-orange-600';
+    if (/تم رفض طلبك|refusée/i.test(title)) return 'text-red-700';
+    if (/تم حفظ شهادة العمل بنجاح|sauvegardée avec succès/i.test(title)) return 'text-blue-700';
+    if (status === 'approved' || /acceptée|succès|تم قبول|تمت الموافقة/.test(title)) return 'text-green-700';
+    if (status === 'rejected' || /رفض|refusée/.test(title)) return 'text-red-700';
+    if (status === 'waiting_admin_file' || /انتظار ملف الإدارة|en attente du fichier/.test(title)) return 'text-orange-600';
+    if (status === 'pending' || status === '' || /قيد المراجعة|envoyée|sauvegardée/.test(title)) return 'text-blue-700';
+    // إذا كان اسم نوع الطلب، أزرق
+    if (isTypeTitle(getUserNotifTitle(notif, language), language)) return 'text-blue-700';
+    return 'text-blue-700';
+  }
+
+  // دالة مساعدة لتحديد إذا كان العنوان يمثل نوع الطلب
+  function isTypeTitle(title: string, language: string) {
+    const typeTitles = [
+      'Attestation de travail', 'Demande de congé', 'Ordre de mission', 'Domiciliation de salaire', 'Attestation de revenus annuels',
+      'شهادة عمل', 'طلب إجازة', 'أمر مهمة', 'توطين الراتب', 'شهادة دخل سنوي'
+    ];
+    return typeTitles.includes(title);
+  }
 
   // دالة توليد رابط الصورة بشكل آمن (مثل UrgentChatButton)
   const getChatImageUrl = (imagePath: string) => {
@@ -520,7 +554,7 @@ export const AppHeader = () => {
                     return (
                       <div key={notif.id || idx} className={`rounded p-2 mb-1 ${notif.is_read ? '' : 'bg-cmc-blue-light/20'}`}>
                         {/* عنوان الإشعار بلون الحالة أو نوع الطلب */}
-                        <div className={`font-bold text-sm ${getNotifTitleColor(notif)}`}>{language === 'ar' ? notif.title_ar : notif.title_fr}</div>
+                        <div className={`font-bold text-sm ${getNotifTitleColorUser(notif, language)}`}>{getUserNotifTitle(notif, language)}</div>
                         {/* نص الإشعار المحسن حسب الحالة */}
                         <div className="text-xs text-gray-700 mt-1">{getStatusText(notif.status || notif.request_status || 'pending', language)}</div>
                         <div className="text-xs text-gray-400 mt-1">{new Date(notif.created_at).toLocaleString(language === 'ar' ? 'ar-EG' : 'fr-FR')}</div>
