@@ -437,12 +437,10 @@ const AdminDashboard: React.FC = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {request.status === 'pending' ? (
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{t('pending')}</span>
-                          ) : request.status === 'approved' ? (
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">{t('approved')}</span>
-                          ) : request.status === 'rejected' ? (
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">{t('rejected')}</span>
+                          {request.status === 'urgent' ? (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">urgent</span>
+                          ) : request.status === 'pending' ? (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Normal</span>
                           ) : null}
                         </div>
                       </div>

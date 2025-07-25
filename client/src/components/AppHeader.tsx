@@ -128,108 +128,25 @@ export const AppHeader = () => {
   // إشعارات المستخدم العادي
   useEffect(() => {
     if (user && !user.is_admin) {
-      // جلب الإشعارات فوراً عند تحميل الصفحة
-      const fetchInitialNotifications = async () => {
-        try {
-          const res = await import('@/components/Api/axios').then(m => m.default.get('/notifications'));
-          const notifs = Array.isArray(res.data) ? res.data : [];
-          setUserNotifs(notifs);
-          
-          // حساب عدد الإشعارات غير المقروءة
-          const unreadCount = notifs.filter(n => !n.is_read).length;
-          setUserNotifCount(unreadCount);
-          
-          // تحديث إضافي من API للتأكد من الدقة
-          setTimeout(async () => {
-            try {
-              const countRes = await import('@/components/Api/axios').then(m => m.default.get('/notifications/unread-count'));
-              const apiCount = countRes.data.count || 0;
-              setUserNotifCount(apiCount);
-            } catch (error) {
-              console.error('Error fetching initial count:', error);
-            }
-          }, 500);
-        } catch (error) {
-          console.error('Error fetching initial notifications:', error);
-        }
-      };
-
-      fetchInitialNotifications();
-    }
-  }, [user]);
-
-  // تحديث عداد الإشعارات تلقائياً كل 30 ثانية بدلاً من كل ثانية (تحسين كبير للأداء)
-  useEffect(() => {
-    if (user && !user.is_admin && !userNotifOpen) {
-      const fetchNotifCount = async () => {
-        try {
-          const res = await import('@/components/Api/axios').then(m => m.default.get('/notifications/unread-count'));
-          setUserNotifCount(res.data.count || 0);
-        } catch (error) {
-          console.error('Error fetching notification count:', error);
-        }
-      };
-
-      // جلب العداد فوراً
-      fetchNotifCount();
-
-      // تحديث كل 30 ثانية بدلاً من كل ثانية (تحسين كبير للأداء)
-      const interval = setInterval(fetchNotifCount, 30000);
-
-      return () => clearInterval(interval);
-    }
-  }, [user, userNotifOpen]);
-
-  // تحديث قائمة الإشعارات تلقائياً كل 60 ثانية بدلاً من كل ثانية (تحسين كبير للأداء)
-  useEffect(() => {
-    if (user && !user.is_admin && !userNotifOpen) {
-      const fetchNotifList = async () => {
-        try {
-          const res = await import('@/components/Api/axios').then(m => m.default.get('/notifications'));
-          const notifs = Array.isArray(res.data) ? res.data : [];
-          setUserNotifs(notifs);
-        } catch (error) {
-          console.error('Error fetching notification list:', error);
-        }
-      };
-
-      // جلب القائمة فوراً
-      fetchNotifList();
-
-      // تحديث كل 60 ثانية بدلاً من كل ثانية (تحسين كبير للأداء)
-      const interval = setInterval(fetchNotifList, 60000);
-
-      return () => clearInterval(interval);
+      import('@/components/Api/axios').then(m => m.default.get('/notifications')).then(res => {
+        const notifs = Array.isArray(res.data) ? res.data : [];
+        setUserNotifs(notifs);
+        setUserNotifCount(notifs.filter(n => !n.is_read).length);
+      });
     }
   }, [user, userNotifOpen]);
 
   const handleUserNotifOpenChange = (open: boolean) => {
     setUserNotifOpen(open);
     if (open && user && !user.is_admin) {
-      // جلب الإشعارات الجديدة فوراً عند فتح النافذة
-      const fetchNotificationsImmediately = async () => {
-        try {
-          const res = await import('@/components/Api/axios').then(m => m.default.get('/notifications'));
-          const notifs = Array.isArray(res.data) ? res.data : [];
-          setUserNotifs(notifs);
-          
-          // لا نعيد تعيين العداد هنا، فقط نحدث القائمة
-          // العداد سيتم تحديثه من خلال WebSocket أو API polling
-          
-          // تعليم الإشعارات كمقروءة بعد جلبها
-          await import('@/components/Api/axios').then(m => m.default.post('/notifications/read-all'));
-          setUserNotifCount(0);
-          setUserNotifs(prev => prev.map(n => ({ ...n, is_read: true })));
-        } catch (error) {
-          console.error('Error fetching notifications:', error);
-        }
-      };
-
-      fetchNotificationsImmediately();
+      import('@/components/Api/axios').then(m => m.default.post('/notifications/read-all')).then(() => {
+        setUserNotifCount(0);
+        setUserNotifs(prev => prev.map(n => ({ ...n, is_read: true })));
+      });
     }
   };
 
-  // جلب الرسائل عند اختيار مستخدم (تعديل المسار + polling محسن)
+  // جلب الرسائل عند اختيار مستخدم (تعديل المسار + polling)
   useEffect(() => {
     let interval: NodeJS.Timeout;
     const fetchMessages = () => {
@@ -239,7 +156,6 @@ export const AppHeader = () => {
     };
     fetchMessages();
     if (chatOpen && selectedUser) {
-      // تحديث كل 5 ثوانٍ بدلاً من كل ثانية (تحسين الأداء)
       interval = setInterval(fetchMessages, 5000);
     }
     return () => { if (interval) clearInterval(interval); };
@@ -249,98 +165,43 @@ export const AppHeader = () => {
   const [totalUnreadMessages, setTotalUnreadMessages] = useState(0);
 
   useEffect(() => {
-    let echoInstance: any = null;
-    (async () => {
-      const storedToken = localStorage.getItem('token');
-      if (!user || !storedToken) {
-        if (user && !storedToken && process.env.NODE_ENV === 'development') {
-          console.warn('No auth token found for Echo!');
-        }
-        return;
+    if (!user || !token) {
+      if (user && !token && process.env.NODE_ENV === 'development') {
+        console.warn('No auth token found for Echo!');
       }
-      const echo = createEcho(storedToken);
-      if (!echo) return;
-      echoInstance = echo;
-      // استمع لرسائل الدردشة (حتى لو لم تكن نافذة الدردشة مفتوحة)
-      const chatChannel = echo.private('chat.' + user.id);
-      chatChannel.listen('NewChatMessage', (data: any) => {
-        if (data.message.from_user_id !== user.id) {
-          playMessageSound();
-          const fromId = data.message.from_user_id;
-          setUnreadCounts(prev => {
-            const newCount = (prev[fromId] || 0) + 1;
-            return { ...prev, [fromId]: newCount };
-          });
-        }
-        if (chatOpen && selectedUser && (data.message.from_user_id === selectedUser || data.message.to_user_id === selectedUser)) {
-          setChatMessages(prev => [...prev, data.message]);
-        }
-      });
+      return;
+    }
+    const echo = createEcho(token);
+    if (!echo) return;
 
-      // استمع للإشعارات (حتى لو لم تكن نافذة الإشعارات مفتوحة)
-      const notifChannel = echo.channel('notifications');
-      notifChannel.listen('NewNotification', () => {
-        setNotifCount((prev) => prev + 1);
-        playNotificationSound(); // استخدم صوت الإشعار وليس الرسالة
-      });
-
-      // استمع لإشعارات المستخدم العادي
-      if (!user.is_admin) {
-        const userNotifChannel = echo.private('user.notifications.' + user.id);
-        userNotifChannel.listen('NewUserNotification', (data: any) => {
-          
-          // إضافة الإشعار الجديد للقائمة مع تجنب التكرار
-          setUserNotifs(prev => {
-            const exists = prev.some(n => n.id === data.notification.id);
-            if (!exists) {
-              return [data.notification, ...prev];
-            }
-            return prev;
-          });
-          
-          // زيادة عداد الإشعارات غير المقروءة فوراً
-          setUserNotifCount(prev => {
-            const newCount = prev + 1;
-            return newCount;
-          });
-          
-          // تشغيل صوت الإشعار
-          playNotificationSound();
-          
-          // تحديث فوري من API للتأكد من الدقة (بدون استبدال القيمة المحسنة)
-          setTimeout(() => {
-            import('@/components/Api/axios').then(m => m.default.get('/notifications/unread-count')).then(res => {
-              const apiCount = res.data.count || 0;
-              // استخدم القيمة الأكبر بين المحسنة والـ API
-              setUserNotifCount(prev => {
-                const finalCount = Math.max(prev, apiCount);
-                return finalCount;
-              });
-            }).catch(() => {});
-          }, 1000);
-          
-          // تحديث إضافي بعد ثانيتين للتأكد من ظهور العداد
-          setTimeout(() => {
-            setUserNotifCount(prev => {
-              if (prev === 0) {
-                return 1;
-              }
-              return prev;
-            });
-          }, 2000);
+    // استمع لرسائل الدردشة (حتى لو لم تكن نافذة الدردشة مفتوحة)
+    const chatChannel = echo.private('chat.' + user.id);
+    chatChannel.listen('NewChatMessage', (data: any) => {
+      if (data.message.from_user_id !== user.id) {
+        playMessageSound();
+        const fromId = data.message.from_user_id;
+        setUnreadCounts(prev => {
+          const newCount = (prev[fromId] || 0) + 1;
+          return { ...prev, [fromId]: newCount };
         });
       }
-    })();
-    return () => {
-      if (echoInstance) {
-        echoInstance.leave('chat.' + user?.id);
-        echoInstance.leave('notifications');
-        if (user && !user.is_admin) {
-          echoInstance.leave('user.notifications.' + user.id);
-        }
+      if (chatOpen && selectedUser && (data.message.from_user_id === selectedUser || data.message.to_user_id === selectedUser)) {
+        setChatMessages(prev => [...prev, data.message]);
       }
+    });
+
+    // استمع للإشعارات (حتى لو لم تكن نافذة الإشعارات مفتوحة)
+    const notifChannel = echo.channel('notifications');
+    notifChannel.listen('NewNotification', () => {
+      setNotifCount((prev) => prev + 1);
+      playNotificationSound(); // استخدم صوت الإشعار وليس الرسالة
+    });
+
+    return () => {
+      echo.leave('chat.' + user.id);
+      echo.leave('notifications');
     };
-  }, [user, chatOpen, selectedUser]);
+  }, [user, token, chatOpen, selectedUser]);
 
   // عند فتح نافذة الدردشة، صفّر عداد الشارة العام
   useEffect(() => {
@@ -404,7 +265,7 @@ export const AppHeader = () => {
     }
   }, [chatOpen, selectedUser, chatMessages]);
 
-  // جلب الرسائل وحساب unreadCounts لكل مستخدم عند تحميل الصفحة أو كل 30 ثانية (تحسين كبير للأداء)
+  // جلب الرسائل وحساب unreadCounts لكل مستخدم عند تحميل الصفحة أو كل 5 ثوانٍ حتى لو لم تُفتح الدردشة
   useEffect(() => {
     let interval;
     const fetchUnreadCountsAndLastMessages = async () => {
@@ -428,8 +289,7 @@ export const AppHeader = () => {
       }
     };
     fetchUnreadCountsAndLastMessages();
-    // تحديث كل 30 ثانية بدلاً من كل ثانية (تحسين كبير للأداء)
-    interval = setInterval(fetchUnreadCountsAndLastMessages, 30000);
+    interval = setInterval(fetchUnreadCountsAndLastMessages, 5000);
     return () => { if (interval) clearInterval(interval); };
   }, [users, user]);
 
@@ -500,35 +360,28 @@ export const AppHeader = () => {
 
   // عند استقبال إشعار جديد عبر WebSocket، أظهر الفقاعة
   useEffect(() => {
-    let echoInstance: any = null;
-    (async () => {
-      const storedToken = localStorage.getItem('token');
-      if (!user || !storedToken) return;
-      const echo = createEcho(storedToken);
-      if (!echo) return;
-      echoInstance = echo;
-      const notifChannel = echo.channel('notifications');
-      notifChannel.listen('NewNotification', (data: any) => {
-        const notifId = data?.notification?.id || data?.id;
-        const notifTitle = data?.notification?.title_ar || data?.notification?.title_fr || data?.title || 'إشعار جديد';
-        if (notifId && notifId !== lastNotifIdRef.current) {
-          lastNotifIdRef.current = notifId;
-          setNotifCount((prev) => prev + 1);
-          setNotifBubbleText(notifTitle);
-          setShowNotifBubble(true);
-          if (notifBubbleTimeout.current) clearTimeout(notifBubbleTimeout.current);
-          notifBubbleTimeout.current = setTimeout(() => setShowNotifBubble(false), 5000);
-          playNotificationSound();
-        }
-      });
-    })();
-    return () => {
-      if (echoInstance) {
-        echoInstance.leave('notifications');
+    if (!user || !token) return;
+    const echo = createEcho(token);
+    if (!echo) return;
+    const notifChannel = echo.channel('notifications');
+    notifChannel.listen('NewNotification', (data: any) => {
+      const notifId = data?.notification?.id || data?.id;
+      const notifTitle = data?.notification?.title_ar || data?.notification?.title_fr || data?.title || 'إشعار جديد';
+      if (notifId && notifId !== lastNotifIdRef.current) {
+        lastNotifIdRef.current = notifId;
+        setNotifCount((prev) => prev + 1);
+        setNotifBubbleText(notifTitle);
+        setShowNotifBubble(true);
         if (notifBubbleTimeout.current) clearTimeout(notifBubbleTimeout.current);
+        notifBubbleTimeout.current = setTimeout(() => setShowNotifBubble(false), 5000);
+        playNotificationSound();
       }
+    });
+    return () => {
+      echo.leave('notifications');
+      if (notifBubbleTimeout.current) clearTimeout(notifBubbleTimeout.current);
     };
-  }, [user]);
+  }, [user, token]);
 
   // شغّل صوت الإشعار فقط عند زيادة العدد
   const prevNotifCount = useRef(notifCount);
@@ -588,118 +441,34 @@ export const AppHeader = () => {
         return { label: type, color: 'bg-gray-100 text-gray-800' };
     }
   };
-
-  const getUserNotifTitle = (notif: any, language: string) => {
-    const typeMap: any = {
-      workCertificate: language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
-      vacationRequest: language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
-      missionOrder: language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
-      salaryDomiciliation: language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
-      annualIncome: language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
-      // إضافة الأنواع القديمة (plural forms)
-      work_certificates: language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
-      vacation_requests: language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
-      mission_orders: language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
-      salary_domiciliations: language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
-      annual_incomes: language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
-    };
-    // استخدم notif.type مباشرة
-    if (notif.type && typeMap[notif.type]) return typeMap[notif.type];
-
-    // ابحث عن الكلمات المفتاحية في العنوان أو body
-    const text = ((language === 'ar' ? notif.title_ar : notif.title_fr) || '') +
-                 ' ' +
-                 ((language === 'ar' ? notif.body_ar : notif.body_fr) || '');
-
-    for (const key in typeMap) {
-      if (text.includes(typeMap[key])) return typeMap[key];
+  const getStatusText = (status: string, language: string) => {
+    switch (status) {
+      case 'approved':
+        return language === 'ar' ? 'تم قبول طلبك بنجاح. سيتم تجهيز الملف قريبًا.' : 'Votre demande a été acceptée. Le fichier sera prêt bientôt.';
+      case 'rejected':
+        return language === 'ar' ? 'تم رفض طلبك لأنه غير مكتمل أو لا يستوفي الشروط. يمكنك إعادة المحاولة بعد استكمال البيانات.' : "Votre demande a été rejetée car elle est incomplète ou ne répond pas aux critères. Vous pouvez réessayer après avoir complété les informations.";
+      case 'waiting_admin_file':
+        return language === 'ar' ? 'تمت الموافقة على طلبك جزئيًا. انتظر ملف الإدارة.' : 'Votre demande a été partiellement acceptée. Attendez le fichier de l\'admin.';
+      default:
+        return language === 'ar' ? 'طلبك قيد المراجعة. سيتم إعلامك عند تحديث الحالة.' : 'Votre demande est en cours de traitement. Vous serez notifié lors de la mise à jour.';
     }
-
-    // ابحث عن كلمات مفتاحية شائعة
-    if (/عمل|travail/i.test(text)) return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
-    if (/إجازة|congé/i.test(text)) return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
-    if (/مهمة|mission/i.test(text)) return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
-    if (/توطين|salaire/i.test(text)) return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
-    if (/دخل|revenu/i.test(text)) return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
-
-    // إذا لم تجد أي نوع، استخدم نوع الطلب من البيانات
-    if (notif.data) {
-      try {
-        const data = JSON.parse(notif.data);
-        if (data.work_certificate_id) return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
-        if (data.vacation_request_id) return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
-        if (data.mission_order_id) return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
-        if (data.salary_domiciliation_id) return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
-        if (data.annual_income_id) return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
-      } catch (e) {
-        // تجاهل أخطاء JSON
-      }
-    }
-
-    // إذا لم تجد أي نوع، استخدم نوع الطلب من البيانات
-    if (notif.data) {
-      try {
-        const data = JSON.parse(notif.data);
-        if (data.request_type) {
-          const requestTypeMap: any = {
-            workCertificate: language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
-            vacationRequest: language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
-            missionOrder: language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
-            salaryDomiciliation: language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
-            annualIncome: language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
-            // إضافة الأنواع القديمة
-            work_certificates: language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
-            vacation_requests: language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
-            mission_orders: language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
-            salary_domiciliations: language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
-            annual_incomes: language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
-          };
-          return requestTypeMap[data.request_type] || (language === 'ar' ? 'طلب جديد' : 'Nouvelle demande');
-        }
-      } catch (e) {
-        // تجاهل أخطاء JSON
-      }
-    }
-
-    // إذا لم تجد أي نوع، استخدم نص افتراضي محسن
-    return language === 'ar' ? 'طلب جديد' : 'Nouvelle demande';
   };
 
-  const getNotifTitleColorUser = (notif: any) => {
+  const getNotifTitleColor = (notif: any) => {
     const status = notif.status || notif.request_status || '';
-    const title = (notif.title_ar || notif.title_fr || '').toLowerCase();
-    if (/تم تجهيز ملفك من الإدارة|votre fichier est prêt/i.test(title)) return 'text-green-700';
-    if (/تم قبول طلبك، بانتظار رفع ملف الإدارة|acceptée, en attente du fichier/i.test(title)) return 'text-orange-600';
-    if (/تم رفض طلبك|refusée/i.test(title)) return 'text-red-700';
-    if (/تم حفظ شهادة العمل بنجاح|sauvegardée avec succès/i.test(title)) return 'text-blue-700';
-    if (status === 'approved' || /acceptée|succès|تم قبول|تمت الموافقة/.test(title)) return 'text-green-700';
-    if (status === 'rejected' || /رفض|refusée/.test(title)) return 'text-red-700';
-    if (status === 'waiting_admin_file' || /انتظار ملف الإدارة|en attente du fichier/.test(title)) return 'text-orange-600';
-    if (status === 'pending' || status === '' || /قيد المراجعة|envoyée|sauvegardée/.test(title)) return 'text-blue-700';
-    return 'text-blue-700';
-  };
-
-  const getUserNotificationText = (notif: any, language: string) => {
-    const title = (language === 'ar' ? notif.title_ar : notif.title_fr) || '';
-    if (/تم تجهيز ملفك من الإدارة|votre fichier est prêt/i.test(title)) return language === 'ar' ? 'تم قبول ملفك ويمكنك تحميله من صفحة جميع الطلبات.' : 'Votre fichier a été accepté. Vous pouvez le télécharger depuis la page de toutes les demandes.';
-    if (/تم قبول طلبك، بانتظار رفع ملف الإدارة|acceptée, en attente du fichier/i.test(title)) return language === 'ar' ? 'تمت الموافقة، انتظر ملف الإدارة.' : "En attente du fichier de l'admin.";
-    if (/تم رفض طلبك|refusée/i.test(title)) return language === 'ar' ? 'تم الرفض بسبب نقص أو خطأ في الملف. يمكنك إعادة الطلب.' : 'Refusé pour dossier incomplet ou erreur. Vous pouvez refaire la demande.';
-    if (/تم حفظ شهادة العمل بنجاح|sauvegardée avec succès/i.test(title)) return language === 'ar' ? 'تم إرسال الطلب وهو قيد المراجعة من الإدارة.' : 'Votre demande a été envoyée et est en cours de révision par l’administration.';
-    // fallback القديم
-    const status = notif.status || notif.request_status || '';
-    if (status === 'waiting_admin_file') {
-      return language === 'ar' ? 'تمت الموافقة، انتظر ملف الإدارة.' : "En attente du fichier de l'admin.";
+    if (status === 'approved') return 'text-green-700';
+    if (status === 'rejected') return 'text-red-700';
+    if (status === 'waiting_admin_file') return 'text-orange-600';
+    if (status === 'pending' || status === '') return 'text-blue-700';
+    // إذا لم يكن حالة، استخدم نوع الطلب
+    switch (notif.type) {
+      case 'vacationRequest': return 'text-blue-700';
+      case 'workCertificate': return 'text-green-700';
+      case 'missionOrder': return 'text-purple-700';
+      case 'salaryDomiciliation': return 'text-cyan-700';
+      case 'annualIncome': return 'text-orange-700';
+      default: return 'text-gray-800';
     }
-    if (status === 'approved') {
-      return language === 'ar' ? 'تم قبول ملفك ويمكنك تحميله من صفحة جميع الطلبات.' : 'Votre fichier a été accepté. Vous pouvez le télécharger depuis la page de toutes les demandes.';
-    }
-    if (status === 'rejected') {
-      return language === 'ar' ? 'تم الرفض بسبب نقص أو خطأ في الملف. يمكنك إعادة الطلب.' : 'Refusé pour dossier incomplet ou erreur. Vous pouvez refaire la demande.';
-    }
-    if (status === 'pending' || status === '') {
-      return language === 'ar' ? 'تم إرسال الطلب وهو قيد المراجعة من الإدارة.' : 'Votre demande a été envoyée et est en cours de révision par l’administration.';
-    }
-    return language === 'ar' ? notif.body_ar : notif.body_fr;
   };
 
   return (
@@ -741,9 +510,9 @@ export const AppHeader = () => {
                     return (
                       <div key={notif.id || idx} className={`rounded p-2 mb-1 ${notif.is_read ? '' : 'bg-cmc-blue-light/20'}`}>
                         {/* عنوان الإشعار بلون الحالة أو نوع الطلب */}
-                        <div className={`font-bold text-sm ${getNotifTitleColorUser(notif)}`}>{getUserNotifTitle(notif, language)}</div>
+                        <div className={`font-bold text-sm ${getNotifTitleColor(notif)}`}>{language === 'ar' ? notif.title_ar : notif.title_fr}</div>
                         {/* نص الإشعار المحسن حسب الحالة */}
-                        <div className="text-xs text-gray-700 mt-1">{getUserNotificationText(notif, language)}</div>
+                        <div className="text-xs text-gray-700 mt-1">{getStatusText(notif.status || notif.request_status || 'pending', language)}</div>
                         <div className="text-xs text-gray-400 mt-1">{new Date(notif.created_at).toLocaleString(language === 'ar' ? 'ar-EG' : 'fr-FR')}</div>
                       </div>
                     );

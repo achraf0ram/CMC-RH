@@ -165,6 +165,3 @@ Route::get('/work-certificates/download-db/{id}', [\App\Http\Controllers\WorkCer
 // تحميل ملف vacation من التخزين بشكل آمن
 Route::get('/secure-vacation-download/{filename}', [\App\Http\Controllers\VacationRequestController::class, 'secureDownload'])->middleware('auth:api');
 
-Route::get('/mission-orders/download/{id}', [\App\Http\Controllers\MissionOrderController::class, 'downloadPDF']);
-Route::get('/mission-orders/download-db/{id}', [\App\Http\Controllers\MissionOrderController::class, 'downloadPDFfromDB']);
-
