@@ -303,6 +303,10 @@ class AdminDashboardController extends Controller
                     'title_fr' => 'Votre fichier est prêt',
                     'body_ar' => 'تم رفع الملف النهائي لطلبك من الإدارة.',
                     'body_fr' => 'Le fichier final de votre demande a été envoyé par l’administration.',
+                    'data' => json_encode([
+                        'request_type' => $type,
+                        $type . '_id' => $id,
+                    ]),
                 ]);
             }
         }

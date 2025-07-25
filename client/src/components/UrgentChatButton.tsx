@@ -6,14 +6,13 @@ import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import ReactDOM from 'react-dom';
-import { playMessageSound } from '../utils/sounds';
 
 interface UrgentChatButtonProps {
   hide?: boolean;
 }
 
 const UrgentChatButton: React.FC<UrgentChatButtonProps> = ({ hide }) => {
-  if (hide) return null;
+  if (hide) return null; 
 
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
@@ -77,7 +76,7 @@ const UrgentChatButton: React.FC<UrgentChatButtonProps> = ({ hide }) => {
     if (messages.length > prevMessagesCount.current) {
       const lastMsg = messages[messages.length - 1];
       if (lastMsg && lastMsg.from_user_id !== user?.id) {
-        playMessageSound();
+        // playMessageSound(); // احذف: import { playMessageSound } from '../utils/sounds';
       }
     }
     prevMessagesCount.current = messages.length;
@@ -136,6 +135,20 @@ const UrgentChatButton: React.FC<UrgentChatButtonProps> = ({ hide }) => {
     return '📎';
   };
 
+  // دالة توليد رابط الصورة بشكل آمن
+  const getChatImageUrl = (imagePath: string) => {
+    if (!imagePath) return '';
+    // إزالة أي '/api/' أو 'api/' من البداية إذا وجدت
+    let cleanPath = imagePath.replace(/^\/api\//, '').replace(/^api\//, '');
+    if (cleanPath.startsWith('storage/')) {
+      return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/${cleanPath}`;
+    }
+    if (cleanPath.startsWith('chat_images/')) {
+      return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/${cleanPath}`;
+    }
+    return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/chat_images/${cleanPath}`;
+  };
+
   return (
     <>
       {/* زر عائم */}
@@ -177,11 +190,11 @@ const UrgentChatButton: React.FC<UrgentChatButtonProps> = ({ hide }) => {
                 {msg.image_path && (
                   <>
                     <img
-                      src={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/${msg.image_path}`}
+                      src={msg.image_url || getChatImageUrl(msg.image_path)}
                       alt="chat-img"
                       className="max-w-[120px] max-h-[120px] mb-1 rounded shadow cursor-pointer border border-gray-300"
                       style={{ aspectRatio: '1/1', objectFit: 'cover' }}
-                      onClick={() => setModalImage(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/${msg.image_path}`)}
+                      onClick={() => setModalImage(msg.image_url || getChatImageUrl(msg.image_path))}
 
 
                     />
@@ -244,7 +257,7 @@ const UrgentChatButton: React.FC<UrgentChatButtonProps> = ({ hide }) => {
                 {msg.file_path && (
                   <div className="mb-1">
                     <a
-                      href={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/${msg.file_path}`}
+                      href={msg.file_url || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/${msg.file_path}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors"

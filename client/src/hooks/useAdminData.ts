@@ -17,7 +17,7 @@ export interface Request {
   full_name: string;
   matricule: string;
   created_at: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'urgent';
   type: string;
   file_path: string | null;
   user_id?: number;

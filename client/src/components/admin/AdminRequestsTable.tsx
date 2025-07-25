@@ -81,7 +81,7 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
   // أضف حالة جديدة 'deleted' في rowStates
   // احذف أي تعريف مكرر لـ rowStates و setRowStates
   // أضف حالة جديدة pdf_sent
-  const [rowStates, setRowStates] = useState<{ [key: string]: 'normal' | 'approved' | 'rejected' | 'deleted' | 'pdf_sent' | 'approved_pending_file' }>({});
+  const [rowStates, setRowStates] = useState<{ [key: string]: 'normal' | 'approved' | 'rejected' | 'waiting_file' | 'file_added' | 'deleted' | 'pdf_sent' | 'approved_pending_file' }>({});
 
   // أضف حالة loading محلية لكل صف
   const [rowLoading, setRowLoading] = useState<{ [key: string]: boolean }>({});
@@ -159,20 +159,35 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
 
   // عدل دالة handleUpdateStatus بحيث عند الموافقة لا ترسل للباكند، فقط غيّر الحالة محليًا
   const handleUpdateStatus = async (type: string, id: number, status: 'approved' | 'rejected') => {
+    if (!type) {
+      toast({
+        title: language === 'ar' ? 'خطأ في نوع الطلب' : 'Type Error',
+        description: language === 'ar' ? 'نوع الطلب غير معروف، لا يمكن تحديث الحالة.' : 'Request type is missing, cannot update status.',
+        variant: 'destructive',
+      });
+      return;
+    }
     const rowKey = `${id}-${type}`;
+    // UI update first (temporary)
+    if (status === 'rejected') {
+      setRowStates(prev => ({ ...prev, [rowKey]: 'rejected' }));
+    } else if (status === 'approved') {
+      setRowStates(prev => ({ ...prev, [rowKey]: 'waiting_file' }));
+    }
+    // API call
     const typeSlug = typeToApi(type);
-    setRowLoading(prev => ({ ...prev, [rowKey]: true })); // أظهر spinner
+    setRowLoading(prev => ({ ...prev, [rowKey]: true }));
     try {
-      // If approving, set to 'waiting_admin_file' instead
-      const newStatus = status === 'approved' ? 'waiting_admin_file' : 'rejected';
-      await api.post(`/admin/requests/${typeSlug}/${id}/status`, { status: newStatus });
-      updateRequestStatusLocally(id, type, newStatus);
+      await api.post(`/admin/requests/${typeSlug}/${id}/status`, { status });
+      updateRequestStatusLocally(id, type, status);
       toast({
         title: language === 'ar' ? 'تم تحديث الحالة' : 'Status Updated',
         description: language === 'ar' ? 'تم تحديث حالة الطلب بنجاح' : 'Request status updated successfully',
         variant: 'default',
         duration: 3000,
       });
+      // Immediately refresh data from backend
+      onRequestUpdate();
     } catch (error) {
       console.error('Failed to update status:', error);
       toast({
@@ -182,7 +197,7 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
         duration: 3000,
       });
     } finally {
-      setRowLoading(prev => ({ ...prev, [rowKey]: false })); // أخفِ spinner
+      setRowLoading(prev => ({ ...prev, [rowKey]: false }));
     }
   };
 
@@ -289,6 +304,14 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
 
   const confirmDeleteRequest = async () => {
     if (!requestToDelete) return;
+    if (!requestToDelete.type) {
+      toast({
+        title: language === 'ar' ? 'خطأ في نوع الطلب' : 'Type Error',
+        description: language === 'ar' ? 'نوع الطلب غير معروف، لا يمكن حذف الطلب.' : 'Request type is missing, cannot delete request.',
+        variant: 'destructive',
+      });
+      return;
+    }
     const rowKey = `${requestToDelete.id}-${requestToDelete.type}`;
     setRowLoading(prev => ({ ...prev, [rowKey]: true })); // أظهر spinner
     try {
@@ -324,14 +347,16 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
       const response = await api.post(`/admin/requests/upload-file/${typeSlug}/${id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      // بعد نجاح رفع الملف، حدث الطلب محلياً
       updateRequestStatusLocally(id, type, 'approved', response.data?.file_path);
+      setRowStates(prev => ({ ...prev, [rowKey]: 'file_added' }));
       toast({
         title: language === 'ar' ? 'تم رفع الملف' : 'File uploaded',
         description: language === 'ar' ? 'تم رفع ملف الإدارة بنجاح' : 'Admin file uploaded successfully',
         variant: 'default',
         duration: 3000,
       });
+      // Immediately refresh data from backend
+      onRequestUpdate();
     } catch (error) {
       toast({
         title: language === 'ar' ? 'فشل رفع الملف' : 'Failed to upload file',
@@ -445,8 +470,9 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredRequests && filteredRequests.map(req => {
-            const uniqueKey = `${req.id}-${req.type}`;
+          {filteredRequests && filteredRequests.map((req, idx) => {
+            const safeType = req.type || 'unknown';
+            const uniqueKey = `${req.id}-${safeType}-${idx}`;
             return (
               <TableRow
                 key={uniqueKey}
@@ -510,28 +536,42 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
                   )}
                 </TableCell>
                 <TableCell className="py-2 px-3 text-sm space-x-2" onClick={e => e.stopPropagation()}>
-                  {rowStates[uniqueKey] === 'deleted' || req.status === 'rejected' ? (
-                    <span className="text-gray-400 italic opacity-60 select-none">{language === 'ar' ? 'مرفوض' : 'Rejeté'}</span>
-                  ) : req.status === 'approved' && req.file_path ? (
-                    <span className="text-green-600 italic opacity-80 select-none">{language === 'ar' ? 'أُرسل PDF' : 'PDF envoyé'}</span>
-                  ) : req.status === 'waiting_admin_file' ? (
-                    <Button size="sm" onClick={() => setUploadDialog({ open: true, req })}>{language === 'ar' ? 'إضافة ملف' : 'Ajouter un fichier'}</Button>
-                  ) : (!req.status || req.status === 'pending' || req.status === 'urgent') ? (
-                    rowLoading[`${req.id}-${req.type}`] ? (
-                      <div className="flex items-center gap-2">
-                        <svg className="animate-spin h-5 w-5 mr-2 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                        </svg>
-                        <span className="text-gray-500">{language === 'ar' ? 'جاري التنفيذ...' : 'Traitement...'}</span>
-                      </div>
-                    ) : (
-                      <>
-                        <Button size="sm" onClick={() => handleUpdateStatus(req.type, req.id, 'approved')}>{language === 'ar' ? 'قبول' : 'Approve'}</Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleDeleteRequest(req)}>{language === 'ar' ? 'رفض' : 'Reject'}</Button>
-                      </>
-                    )
-                  ) : null}
+                  {(() => {
+                    const rowKey = `${req.id}-${req.type}`;
+                    if (rowLoading[rowKey]) {
+                      return (
+                        <div className="flex items-center gap-2">
+                          <svg className="animate-spin h-5 w-5 mr-2 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                          </svg>
+                          <span className="text-gray-500">{language === 'ar' ? 'جاري التنفيذ...' : 'Traitement...'}</span>
+                        </div>
+                      );
+                    }
+                    if (req.status === 'rejected') {
+                      return <span className="text-red-500 font-semibold">{language === 'ar' ? 'مرفوض' : 'Rejected'}</span>;
+                    }
+                    if (req.status === 'approved' && req.file_path) {
+                      return <span className="text-green-600 font-semibold">{language === 'ar' ? 'تم إضافة الملف' : 'File added'}</span>;
+                    }
+                    if ((req.status === 'approved' && !req.file_path) || req.status === 'waiting_admin_file') {
+                      return (
+                        <Button size="sm" onClick={() => setUploadDialog({ open: true, req })}>
+                          {language === 'ar' ? 'إضافة ملف' : 'Ajouter un fichier'}
+                        </Button>
+                      );
+                    }
+                    if (req.status === 'pending' || req.status === 'urgent' || !req.status) {
+                      return (
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="default" onClick={() => handleUpdateStatus(req.type, req.id, 'approved')}>{language === 'ar' ? 'قبول' : 'Approve'}</Button>
+                          <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(req.type, req.id, 'rejected')}>{language === 'ar' ? 'رفض' : 'Reject'}</Button>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </TableCell>
               </TableRow>
             );

@@ -1,7 +1,6 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useContext, useEffect, useState } from "react";
 import axios from "axios";
-import { playMessageSound } from '../utils/sounds';
 
 // Define User type
 interface User {

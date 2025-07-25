@@ -47,6 +47,28 @@ const FileViewer: React.FC = () => {
     }
   };
 
+  // دالة تحميل PDF مضمونة
+  const handleDownload = async () => {
+    if (!cleanFile) return;
+    try {
+      const response = await fetch(cleanFile, { credentials: 'include' });
+      if (!response.ok) throw new Error('Network response was not ok');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fullName ? `file_${fullName}.pdf` : 'file.pdf';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    } catch (e) {
+      alert('فشل في تحميل الملف');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-0 relative">
       {/* شريط علوي ثابت للأزرار */}
@@ -62,10 +84,18 @@ const FileViewer: React.FC = () => {
             <Printer className="w-5 h-5" />
             {t('print') || 'طباعة'}
           </button>
-          <a href={cleanFile} download className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-full px-4 py-2 shadow font-semibold" title={t('download') || 'تحميل الملف'}>
-            <Download className="w-5 h-5" />
-            {t('download') || 'تحميل'}
-          </a>
+          {/* زر تحميل PDF */}
+          {isPDF && (
+            <a
+              href={cleanFile}
+              download
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white rounded-full px-4 py-2 shadow font-semibold"
+              title={t('download') || 'تحميل الملف'}
+            >
+              <Download className="w-5 h-5" />
+              {t('download') || 'تحميل'}
+            </a>
+          )}
           <button onClick={() => {
             if (highlightId) {
               // أعد المستخدم إلى الجدول مع إبراز الصف وفتح تبويب الطلبات

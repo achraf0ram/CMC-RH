@@ -22,6 +22,20 @@ class ChatMessageController extends Controller
             })
             ->orderBy('created_at', 'asc')
             ->get();
+        // تحسين: أرجع رابط الصورة كامل إذا كان image_path موجود
+        $messages->transform(function($msg) {
+            if ($msg->image_path) {
+                $msg->image_url = url('storage/' . ltrim($msg->image_path, '/'));
+            } else {
+                $msg->image_url = null;
+            }
+            if ($msg->file_path) {
+                $msg->file_url = url('storage/' . ltrim($msg->file_path, '/'));
+            } else {
+                $msg->file_url = null;
+            }
+            return $msg;
+        });
         return response()->json($messages);
     }
 
@@ -69,7 +83,17 @@ class ChatMessageController extends Controller
             'file_type' => $fileType,
             'is_urgent' => $request->boolean('is_urgent', false),
         ]);
-
+        // تحسين: أرجع رابط الصورة كامل إذا كان image_path موجود
+        if ($message->image_path) {
+            $message->image_url = url('storage/' . ltrim($message->image_path, '/'));
+        } else {
+            $message->image_url = null;
+        }
+        if ($message->file_path) {
+            $message->file_url = url('storage/' . ltrim($message->file_path, '/'));
+        } else {
+            $message->file_url = null;
+        }
         return response()->json($message, 201);
     }
 

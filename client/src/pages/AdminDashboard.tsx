@@ -396,7 +396,7 @@ const AdminDashboard: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 max-h-72 overflow-y-auto" ref={requestsListRef}>
-                    {requests.length > 0 ? requests.slice(0, 80).map((request) => {
+                    {requests.length > 0 ? requests.slice(0, 80).map((request, idx) => {
                       const typeInfo = (() => {
                         switch(request.type) {
                           case 'workCertificate': return { label: t('workCertificate'), color: 'bg-green-100 text-green-700' };
@@ -407,7 +407,8 @@ const AdminDashboard: React.FC = () => {
                           default: return { label: t('notSpecified'), color: 'bg-gray-100 text-gray-800' };
                         }
                       })();
-                      const uniqueKey = `${request.id}-${request.type}`;
+                      const safeType = request.type || 'unknown';
+                      const uniqueKey = `${request.id}-${safeType}-${idx}`;
                       return (
                         <div
                           key={uniqueKey}
@@ -437,11 +438,18 @@ const AdminDashboard: React.FC = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          {request.status === 'urgent' ? (
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">urgent</span>
-                          ) : request.status === 'pending' ? (
-                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Normal</span>
-                          ) : null}
+                          {request.status === 'pending' && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">{t('pending')}</span>
+                          )}
+                          {request.status === 'approved' && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">{t('approved')}</span>
+                          )}
+                          {request.status === 'rejected' && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">{t('rejected')}</span>
+                          )}
+                          {request.status === 'urgent' && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">{t('urgent')}</span>
+                          )}
                         </div>
                       </div>
                       );

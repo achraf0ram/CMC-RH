@@ -4,7 +4,6 @@ import { Users, FileText, AlertTriangle, Calendar, ClipboardCheck, CreditCard, D
 import { RequestDetailsDialog } from './RequestDetailsDialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { createEcho } from '../../lib/echo';
-import { playNotificationSound } from '../../utils/sounds';
 import { useNavigate } from 'react-router-dom';
 import { getTypeInfo } from './typeInfo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -88,7 +87,7 @@ export const AdminNotifications = () => {
   useEffect(() => {
     if (notifications.length > 0) {
       // شغّل الرنة عند وصول إشعار جديد
-      playNotificationSound();
+      // playNotificationSound(); // This line was removed as per the edit hint.
     }
   }, [notifications.length]);
 
@@ -98,7 +97,7 @@ export const AdminNotifications = () => {
       setLastNotif(notifications[0]);
       setShowFloating(true);
       // رنة مميزة
-      playNotificationSound();
+      // playNotificationSound(); // This line was removed as per the edit hint.
       // أخفِ الأيقونة بعد 5 ثواني تلقائياً
       const timeout = setTimeout(() => setShowFloating(false), 5000);
       return () => clearTimeout(timeout);

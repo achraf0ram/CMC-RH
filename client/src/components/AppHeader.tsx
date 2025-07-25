@@ -19,7 +19,6 @@ import { useAdminData } from '@/hooks/useAdminData';
 import axiosInstance from '@/components/Api/axios';
 import { createEcho } from '../lib/echo';
 import { ImageIcon, AlertTriangle, Send, FileText, Calendar, ClipboardCheck, CreditCard, DollarSign } from 'lucide-react';
-import { playMessageSound, playNotificationSound } from '../utils/sounds';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 // Context لمشاركة رسائل الشات
@@ -178,7 +177,6 @@ export const AppHeader = () => {
     const chatChannel = echo.private('chat.' + user.id);
     chatChannel.listen('NewChatMessage', (data: any) => {
       if (data.message.from_user_id !== user.id) {
-        playMessageSound();
         const fromId = data.message.from_user_id;
         setUnreadCounts(prev => {
           const newCount = (prev[fromId] || 0) + 1;
@@ -194,7 +192,6 @@ export const AppHeader = () => {
     const notifChannel = echo.channel('notifications');
     notifChannel.listen('NewNotification', () => {
       setNotifCount((prev) => prev + 1);
-      playNotificationSound(); // استخدم صوت الإشعار وليس الرسالة
     });
 
     return () => {
@@ -335,7 +332,7 @@ export const AppHeader = () => {
       }
     });
     if (shouldPlay) {
-      playMessageSound();
+      // playMessageSound(); // Removed
     }
     prevUnreadCounts.current = { ...unreadCounts };
   }, [unreadCounts, selectedUser]);
@@ -374,7 +371,6 @@ export const AppHeader = () => {
         setShowNotifBubble(true);
         if (notifBubbleTimeout.current) clearTimeout(notifBubbleTimeout.current);
         notifBubbleTimeout.current = setTimeout(() => setShowNotifBubble(false), 5000);
-        playNotificationSound();
       }
     });
     return () => {
@@ -387,7 +383,7 @@ export const AppHeader = () => {
   const prevNotifCount = useRef(notifCount);
   useEffect(() => {
     if (notifCount > prevNotifCount.current) {
-      playNotificationSound();
+      // playNotificationSound(); // Removed
     }
     prevNotifCount.current = notifCount;
   }, [notifCount]);
@@ -469,6 +465,20 @@ export const AppHeader = () => {
       case 'annualIncome': return 'text-orange-700';
       default: return 'text-gray-800';
     }
+  };
+
+  // دالة توليد رابط الصورة بشكل آمن (مثل UrgentChatButton)
+  const getChatImageUrl = (imagePath: string) => {
+    if (!imagePath) return '';
+    // إزالة أي '/api/' أو 'api/' من البداية إذا وجدت
+    let cleanPath = imagePath.replace(/^\/api\//, '').replace(/^api\//, '');
+    if (cleanPath.startsWith('storage/')) {
+      return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/${cleanPath}`;
+    }
+    if (cleanPath.startsWith('chat_images/')) {
+      return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/${cleanPath}`;
+    }
+    return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/chat_images/${cleanPath}`;
   };
 
   return (
@@ -627,13 +637,11 @@ export const AppHeader = () => {
                                 {msg.image_path && (
                                   <>
                                     <img
-                                      src={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/${msg.image_path}`}
+                                      src={msg.image_url || getChatImageUrl(msg.image_path)}
                                       alt="chat-img"
                                       className="max-w-[120px] max-h-[120px] mb-1 rounded shadow cursor-pointer border border-gray-300"
                                       style={{ aspectRatio: '1/1', objectFit: 'cover' }}
-                                      onClick={() => setModalImage(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/${msg.image_path}`)}
-
-                                      
+                                      onClick={() => setModalImage(msg.image_url || getChatImageUrl(msg.image_path))}
                                     />
                                     {modalImage && (
                                       <div
@@ -658,7 +666,7 @@ export const AppHeader = () => {
                                 {msg.file_path && (
                                   <div className="mb-1">
                                     <a
-                                      href={`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/${msg.file_path}`}
+                                      href={msg.file_url || `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/${msg.file_path}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
