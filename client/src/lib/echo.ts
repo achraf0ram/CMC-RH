@@ -19,11 +19,19 @@ export const createEcho = (token?: string) => {
     console.warn('No auth token found for Echo!');
     return null;
   }
+  
+  console.log('Creating Echo instance with token:', authToken ? 'Token exists' : 'No token');
+  
   return new Echo({
     broadcaster: 'pusher',
     key: 'a231b7d09d9824d968a5',
     cluster: 'eu',
-    forceTLS: true,
+    wsHost: 'localhost',
+    wsPort: 6001,
+    wssPort: 6001,
+    forceTLS: false,
+    disableStats: true,
+    enabledTransports: ['ws', 'wss'],
     authEndpoint: `${getBaseUrl()}/api/broadcasting/auth`,
     auth: {
       headers: {
@@ -33,7 +41,6 @@ export const createEcho = (token?: string) => {
         'X-Requested-With': 'XMLHttpRequest',
       },
     },
-    enabledTransports: ['ws', 'wss'],
   });
 };
 

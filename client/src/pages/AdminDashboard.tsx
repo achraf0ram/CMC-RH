@@ -228,10 +228,7 @@ const AdminDashboard: React.FC = () => {
   ];
 
   const quickStats = {
-    pendingToday: requests.filter(r => {
-      const today = new Date().toDateString();
-      return r.status === 'pending' && new Date(r.created_at).toDateString() === today;
-    }).length,
+    pendingToday: requests.filter(r => r.status === 'pending').length,
     newUsersThisWeek: users.filter(u => {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);

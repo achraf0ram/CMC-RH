@@ -108,16 +108,55 @@ export const AppHeader = () => {
     const fetchNotifCount = async () => {
       if (user && user.is_admin) {
         const res = await axiosInstance.get('/admin/notifications/unread-count');
-        setNotifCount(res.data.count || 0);
+        const count = res.data.count || 0;
+        setNotifCount(count);
+      } else {
       }
     };
     fetchNotifCount();
+    
+    // إضافة polling للإدارة لتحديث عدد الإشعارات كل 30 ثانية
+    let interval: NodeJS.Timeout;
+    if (user && user.is_admin) {
+      interval = setInterval(fetchNotifCount, 30000); // كل 30 ثانية
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [user]);
+
+  // تحديث عدد الإشعارات عند تغيير المستخدم أو عند تحميل الصفحة
+  useEffect(() => {
+    if (user && user.is_admin) {
+      const fetchNotifCount = async () => {
+        try {
+          const res = await axiosInstance.get('/admin/notifications/unread-count');
+          const count = res.data.count || 0;
+          setNotifCount(count);
+        } catch (error) {
+        }
+      };
+      fetchNotifCount();
+    }
+  }, [user?.id]); // تحديث عند تغيير معرف المستخدم
+
+  // Debug: تتبع تغييرات العداد
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Notification count changed - Admin:', notifCount, 'User:', userNotifCount);
+    }
+  }, [notifCount, userNotifCount]);
 
   // عند فتح القائمة، اعتبر كل الإشعارات مقروءة في backend
   const handleNotifOpenChange = (open: boolean) => {
     setNotifOpen(open);
     if (open && user && user.is_admin) {
+      // تحديث عدد الإشعارات فوراً عند الفتح
+      axiosInstance.get('/admin/notifications/unread-count').then(res => {
+        setNotifCount(res.data.count || 0);
+      });
+      // ثم اعتبارها مقروءة
       axiosInstance.post('/admin/notifications/mark-all-read').then(() => {
         setNotifCount(0);
       });
@@ -170,8 +209,18 @@ export const AppHeader = () => {
       }
       return;
     }
+    
+    console.log('Setting up WebSocket for user:', user.name, 'is_admin:', user.is_admin);
+    
     const echo = createEcho(token);
-    if (!echo) return;
+    if (!echo) {
+      console.error('Failed to create Echo instance');
+      return;
+    }
+
+    console.log('Echo created successfully, setting up listeners');
+
+    console.log('Setting up WebSocket listeners for user:', user.is_admin ? 'admin' : 'user');
 
     // استمع لرسائل الدردشة (حتى لو لم تكن نافذة الدردشة مفتوحة)
     const chatChannel = echo.private('chat.' + user.id);
@@ -190,13 +239,42 @@ export const AppHeader = () => {
 
     // استمع للإشعارات (حتى لو لم تكن نافذة الإشعارات مفتوحة)
     const notifChannel = echo.channel('notifications');
-    notifChannel.listen('NewNotification', () => {
-      setNotifCount((prev) => prev + 1);
+    notifChannel.listen('NewNotification', (data: any) => {
+      if (!user) return;
+      if (user.is_admin) {
+        setNotifCount((prev) => prev + 1);
+      } else {
+        setUserNotifCount((prev) => prev + 1);
+      }
     });
+
+    // استمع لإشعارات الإدارة بشكل منفصل
+    if (user && user.is_admin) {
+      const adminNotifChannel = echo.channel('admin-notifications');
+      adminNotifChannel.listen('NewAdminNotification', (data: any) => {
+        console.log('Admin notification received via admin-notifications channel');
+        setNotifCount((prev) => prev + 1);
+      });
+    }
+
+    // استمع لإشعارات المستخدم العادي
+    if (user && !user.is_admin) {
+      const userNotifChannel = echo.channel('user-notifications');
+      userNotifChannel.listen('NewUserNotification', (data: any) => {
+        console.log('User notification received via user-notifications channel');
+        setUserNotifCount((prev) => prev + 1);
+      });
+    }
 
     return () => {
       echo.leave('chat.' + user.id);
       echo.leave('notifications');
+      if (user && user.is_admin) {
+        echo.leave('admin-notifications');
+      }
+      if (user && !user.is_admin) {
+        echo.leave('user-notifications');
+      }
     };
   }, [user, token, chatOpen, selectedUser]);
 
@@ -437,16 +515,25 @@ export const AppHeader = () => {
         return { label: type, color: 'bg-gray-100 text-gray-800' };
     }
   };
-  const getStatusText = (status: string, language: string) => {
+  const getStatusText = (status: string, language: string, requestType?: string) => {
+    const requestTypeName = requestType || '';
     switch (status) {
       case 'approved':
-        return language === 'ar' ? 'تم قبول طلبك بنجاح. سيتم تجهيز الملف قريبًا.' : 'Votre demande a été acceptée. Le fichier sera prêt bientôt.';
+        return language === 'ar' 
+          ? `تم قبول ${requestTypeName} بنجاح. سيتم تجهيز الملف قريبًا.`
+          : `${requestTypeName} a été acceptée avec succès. Le fichier sera prêt bientôt.`;
       case 'rejected':
-        return language === 'ar' ? 'تم رفض طلبك لأنه غير مكتمل أو لا يستوفي الشروط. يمكنك إعادة المحاولة بعد استكمال البيانات.' : "Votre demande a été rejetée car elle est incomplète ou ne répond pas aux critères. Vous pouvez réessayer après avoir complété les informations.";
+        return language === 'ar' 
+          ? `تم رفض ${requestTypeName} بسبب نقص أو خطأ في الملف. يمكنك إعادة الطلب.`
+          : `${requestTypeName} a été rejetée car elle est incomplète ou ne répond pas aux critères. Vous pouvez réessayer.`;
       case 'waiting_admin_file':
-        return language === 'ar' ? 'تمت الموافقة على طلبك جزئيًا. انتظر ملف الإدارة.' : 'Votre demande a été partiellement acceptée. Attendez le fichier de l\'admin.';
+        return language === 'ar' 
+          ? `تمت الموافقة على ${requestTypeName} جزئيًا. انتظر ملف الإدارة.`
+          : `${requestTypeName} a été partiellement acceptée. Attendez le fichier de l'admin.`;
       default:
-        return language === 'ar' ? 'طلبك قيد المراجعة. سيتم إعلامك عند تحديث الحالة.' : 'Votre demande est en cours de traitement. Vous serez notifié lors de la mise à jour.';
+        return language === 'ar' 
+          ? `${requestTypeName} قيد المراجعة. سيتم إعلامك عند تحديث الحالة.`
+          : `${requestTypeName} est en cours de traitement. Vous serez notifié lors de la mise à jour.`;
     }
   };
 
@@ -478,17 +565,14 @@ export const AppHeader = () => {
   // أعد دالة اللون القديمة:
   function getNotifTitleColorUser(notif: any, language: string) {
     const status = notif.status || notif.request_status || '';
-    const title = (language === 'ar' ? notif.title_ar : notif.title_fr || '').toLowerCase();
-    if (/تم تجهيز ملفك من الإدارة|votre fichier est prêt/i.test(title)) return 'text-green-700';
-    if (/تم قبول طلبك، بانتظار رفع ملف الإدارة|acceptée, en attente du fichier/i.test(title)) return 'text-orange-600';
-    if (/تم رفض طلبك|refusée/i.test(title)) return 'text-red-700';
-    if (/تم حفظ شهادة العمل بنجاح|sauvegardée avec succès/i.test(title)) return 'text-blue-700';
-    if (status === 'approved' || /acceptée|succès|تم قبول|تمت الموافقة/.test(title)) return 'text-green-700';
-    if (status === 'rejected' || /رفض|refusée/.test(title)) return 'text-red-700';
-    if (status === 'waiting_admin_file' || /انتظار ملف الإدارة|en attente du fichier/.test(title)) return 'text-orange-600';
-    if (status === 'pending' || status === '' || /قيد المراجعة|envoyée|sauvegardée/.test(title)) return 'text-blue-700';
-    // إذا كان اسم نوع الطلب، أزرق
-    if (isTypeTitle(getUserNotifTitle(notif, language), language)) return 'text-blue-700';
+    
+    // تحديد اللون حسب الحالة
+    if (status === 'rejected') return 'text-red-700';
+    if (status === 'approved') return 'text-green-700';
+    if (status === 'waiting_admin_file') return 'text-orange-600';
+    if (status === 'pending' || status === '') return 'text-blue-700';
+    
+    // إذا لم تكن هناك حالة محددة، استخدم اللون الأزرق
     return 'text-blue-700';
   }
 
@@ -499,6 +583,43 @@ export const AppHeader = () => {
       'شهادة عمل', 'طلب إجازة', 'أمر مهمة', 'توطين الراتب', 'شهادة دخل سنوي'
     ];
     return typeTitles.includes(title);
+  }
+
+  // دالة مساعدة لاستخراج نوع الطلب من الإشعار
+  function extractRequestType(notif: any): string | null {
+    if (notif.type) {
+      const typeMap: any = {
+        workCertificate: 'workCertificate',
+        vacationRequest: 'vacationRequest', 
+        missionOrder: 'missionOrder',
+        salaryDomiciliation: 'salaryDomiciliation',
+        annualIncome: 'annualIncome',
+        work_certificates: 'workCertificate',
+        vacation_requests: 'vacationRequest',
+        mission_orders: 'missionOrder',
+        salary_domiciliations: 'salaryDomiciliation',
+        annual_incomes: 'annualIncome'
+      };
+      return typeMap[notif.type] || null;
+    }
+    
+    if (notif.data) {
+      try {
+        const data = typeof notif.data === 'string' ? JSON.parse(notif.data) : notif.data;
+        if (data.request_type) {
+          const typeMap: any = {
+            workCertificate: 'workCertificate',
+            vacationRequest: 'vacationRequest',
+            missionOrder: 'missionOrder', 
+            salaryDomiciliation: 'salaryDomiciliation',
+            annualIncome: 'annualIncome'
+          };
+          return typeMap[data.request_type] || null;
+        }
+      } catch {}
+    }
+    
+    return null;
   }
 
   // دالة توليد رابط الصورة بشكل آمن (مثل UrgentChatButton)
@@ -514,6 +635,8 @@ export const AppHeader = () => {
     }
     return `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/storage/chat_images/${cleanPath}`;
   };
+
+  const [selectedNotificationId, setSelectedNotificationId] = useState<number | null>(null);
 
   return (
     <header className={cn(
@@ -539,9 +662,9 @@ export const AppHeader = () => {
               <Button variant="ghost" size="icon" className="relative hover:bg-cmc-blue-light/50 text-cmc-blue h-9 w-9 md:h-10 md:w-10">
                 <Bell size={16} />
                 {userNotifCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-gradient-to-r from-cmc-blue to-cmc-green text-xs">
+                  <span className="absolute -top-1 -right-1 bg-gradient-to-r from-cmc-blue to-cmc-green text-white rounded-full text-xs px-1.5 py-0.5 min-w-[20px] text-center shadow">
                     {userNotifCount}
-                  </Badge>
+                  </span>
                 )}
               </Button>
             </DropdownMenuTrigger>
@@ -551,12 +674,20 @@ export const AppHeader = () => {
                 {userNotifs.length === 0 && <div className="text-gray-500 px-4">لا توجد إشعارات جديدة.</div>}
                 <div className="flex-1 overflow-y-auto px-2">
                   {userNotifs.slice(0, visibleUserNotifCount).map((notif, idx) => {
+                    const requestType = extractRequestType(notif);
+                    const requestTypeName = getUserNotifTitle(notif, language);
+                    const status = notif.status || notif.request_status || 'pending';
+                    
                     return (
                       <div key={notif.id || idx} className={`rounded p-2 mb-1 ${notif.is_read ? '' : 'bg-cmc-blue-light/20'}`}>
-                        {/* عنوان الإشعار بلون الحالة أو نوع الطلب */}
-                        <div className={`font-bold text-sm ${getNotifTitleColorUser(notif, language)}`}>{getUserNotifTitle(notif, language)}</div>
-                        {/* نص الإشعار المحسن حسب الحالة */}
-                        <div className="text-xs text-gray-700 mt-1">{getStatusText(notif.status || notif.request_status || 'pending', language)}</div>
+                        {/* عنوان الإشعار: اسم نوع الطلب بلون الحالة */}
+                        <div className={`font-bold text-sm ${getNotifTitleColorUser(notif, language)}`}>
+                          {requestTypeName}
+                        </div>
+                        {/* نص الإشعار المحسن حسب الحالة مع اسم نوع الطلب */}
+                        <div className="text-xs text-gray-700 mt-1">
+                          {getStatusText(status, language, requestTypeName)}
+                        </div>
                         <div className="text-xs text-gray-400 mt-1">{new Date(notif.created_at).toLocaleString(language === 'ar' ? 'ar-EG' : 'fr-FR')}</div>
                       </div>
                     );
@@ -803,7 +934,7 @@ export const AppHeader = () => {
                 <Button variant="ghost" size="icon" className="relative hover:bg-cmc-blue-light/50 text-cmc-blue h-9 w-9 md:h-10 md:w-10" title="الإشعارات">
                   <Bell size={18} />
                   {notifCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-cmc-blue to-cmc-green text-white rounded-full text-xs px-1.5 py-0.5 min-w-[20px] text-center">
+                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-cmc-blue to-cmc-green text-white rounded-full text-xs px-1.5 py-0.5 min-w-[20px] text-center shadow">
                       {notifCount}
                     </span>
                   )}

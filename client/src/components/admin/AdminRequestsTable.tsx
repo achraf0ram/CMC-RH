@@ -515,10 +515,10 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
         <TableBody>
           {filteredRequests && filteredRequests.map((req, idx) => {
             const safeType = req.type || 'unknown';
-            const uniqueKey = `${req.id}-${safeType}-${idx}`;
+            const uniqueKey = `${req.id}-${safeType}`;
             return (
               <TableRow
-                key={uniqueKey}
+                key={`${uniqueKey}-${idx}`}
                 ref={el => { if (highlightedRequestId === uniqueKey) rowRefs.current[uniqueKey] = el; }}
                 className={`hover:bg-gray-50 cursor-pointer transition-all ${highlightedRequestId === uniqueKey ? 'border-2 border-blue-500 shadow-md' : ''}`}
                 onClick={() => {

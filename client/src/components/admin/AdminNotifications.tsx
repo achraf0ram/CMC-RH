@@ -32,7 +32,7 @@ interface NotificationItem {
   data?: string; // Added for request data
 }
 
-export const AdminNotifications = () => {
+export const AdminNotifications: React.FC = () => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
@@ -71,12 +71,14 @@ export const AdminNotifications = () => {
           if (prev.length > 0 && prev[0].id === data.notification.id) return prev;
           return [data.notification, ...prev];
         });
+        // إخطار AppHeader بتحديث العداد
       } else if (data && data.id) {
         // fallback إذا لم يكن هناك notification كامل
         setNotifications(prev => {
           if (prev.length > 0 && prev[0].id === data.id) return prev;
           return [data, ...prev];
         });
+        // إخطار AppHeader بتحديث العداد
       }
     });
     return () => {
@@ -162,17 +164,11 @@ export const AdminNotifications = () => {
 
   // دالة توليد نص الإشعار حسب النوع
   const getNotificationText = (notif: NotificationItem, language: string, userName: string) => {
-    // استخراج نوع الطلب من notif.type أو من extractRequestType
-    let requestTypeKey = notif.type;
-    if (notif.type === 'request' && notif.data) {
-      const extracted = extractRequestType(notif);
-      if (extracted) requestTypeKey = extracted;
-    }
-    // جلب اسم نوع الطلب المناسب للغة
-    const typeInfo = getTypeInfo(requestTypeKey, t);
-    const typeLabel = typeInfo.label;
-
-    switch (requestTypeKey) {
+    switch (notif.type) {
+      case 'newUser':
+        return language === 'ar'
+          ? `تم إنشاء حساب جديد باسم ${userName}`
+          : `${userName} a créé un nouveau compte`;
       case 'vacationRequest':
       case 'workCertificate':
       case 'missionOrder':
@@ -180,12 +176,8 @@ export const AdminNotifications = () => {
       case 'annualIncome':
       case 'request':
         return language === 'ar'
-          ? `${userName} أرسل ${typeLabel}`
-          : `${userName} a envoyé une ${typeLabel.toLowerCase()}`;
-      case 'newUser':
-        return language === 'ar'
-          ? `تم إنشاء حساب جديد باسم ${userName}`
-          : `${userName} a créé un nouveau compte`;
+          ? `${userName} أرسل طلب`
+          : `${userName} a envoyé une demande`;
       case 'urgent':
         return language === 'ar'
           ? `إشعار عاجل من ${userName}`
