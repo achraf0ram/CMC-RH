@@ -61,6 +61,8 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
   const [selectedRequest, setSelectedRequest] = useState<AdminRequest | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [requestToDelete, setRequestToDelete] = useState<AdminRequest | null>(null);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [requestToReject, setRequestToReject] = useState<AdminRequest | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   // قراءة highlight من كود الاستعلام
@@ -336,6 +338,47 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
     }
   };
 
+  // دالة تأكيد الرفض
+  const handleRejectRequest = async (req: AdminRequest) => {
+    setRequestToReject(req);
+    setShowRejectDialog(true);
+  };
+
+  const confirmRejectRequest = async () => {
+    if (!requestToReject) return;
+    if (!requestToReject.type) {
+      toast({
+        title: language === 'ar' ? 'خطأ في نوع الطلب' : 'Type Error',
+        description: language === 'ar' ? 'نوع الطلب غير معروف، لا يمكن رفض الطلب.' : 'Request type is missing, cannot reject request.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    const rowKey = `${requestToReject.id}-${requestToReject.type}`;
+    setRowLoading(prev => ({ ...prev, [rowKey]: true }));
+    try {
+      const typeSlug = typeToApi(requestToReject.type);
+      await api.post(`/admin/requests/${typeSlug}/${requestToReject.id}/status`, { status: 'rejected' });
+      updateRequestStatusLocally(requestToReject.id, requestToReject.type, 'rejected');
+      toast({
+        title: language === 'ar' ? 'تم رفض الطلب' : 'Demande rejetée',
+        description: language === 'ar' ? 'تم رفض الطلب بنجاح.' : 'La demande a été rejetée avec succès.',
+        variant: 'destructive',
+      });
+      setRowStates(prev => ({ ...prev, [rowKey]: 'rejected' }));
+    } catch (error) {
+      toast({
+        title: language === 'ar' ? 'خطأ' : 'Erreur',
+        description: language === 'ar' ? 'فشل في رفض الطلب.' : 'Échec du rejet de la demande.',
+        variant: 'destructive',
+      });
+    } finally {
+      setRowLoading(prev => ({ ...prev, [rowKey]: false }));
+      setShowRejectDialog(false);
+      setRequestToReject(null);
+    }
+  };
+
   // عدل handleUploadPDF بحيث يرسل status=approved مع الملف
   const handleUploadPDF = async (type: string, id: number, file: File) => {
     const rowKey = `${id}-${type}`;
@@ -566,7 +609,7 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
                       return (
                         <div className="flex gap-2">
                           <Button size="sm" variant="default" onClick={() => handleUpdateStatus(req.type, req.id, 'approved')}>{language === 'ar' ? 'قبول' : 'Approve'}</Button>
-                          <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(req.type, req.id, 'rejected')}>{language === 'ar' ? 'رفض' : 'Reject'}</Button>
+                          <Button size="sm" variant="destructive" onClick={() => handleRejectRequest(req)}>{language === 'ar' ? 'رفض' : 'Reject'}</Button>
                         </div>
                       );
                     }
@@ -604,6 +647,36 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
               onClick={confirmDeleteRequest}
             >
               {t('delete')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Dialog تأكيد الرفض */}
+      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-center">
+              {requestToReject ? (
+                language === 'ar'
+                  ? `هل أنت متأكد أنك تريد رفض ${getTypeInfo(requestToReject.type, t).label}؟`
+                  : `Êtes-vous sûr de vouloir rejeter la demande « ${getTypeInfo(requestToReject.type, t).label} » ?`
+              ) : (language === 'ar' ? 'تأكيد الرفض' : 'Confirmation de rejet')}
+            </DialogTitle>
+          </DialogHeader>
+          <DialogFooter className="flex flex-row justify-center gap-4 mt-4">
+            <button
+              type="button"
+              className="px-6 py-2 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 font-semibold text-base transition"
+              onClick={() => setShowRejectDialog(false)}
+            >
+              {t('cancel')}
+            </button>
+            <button
+              type="button"
+              className="px-6 py-2 rounded bg-red-600 text-white hover:bg-red-700 font-semibold text-base transition"
+              onClick={confirmRejectRequest}
+            >
+              {language === 'ar' ? 'رفض' : 'Rejeter'}
             </button>
           </DialogFooter>
         </DialogContent>

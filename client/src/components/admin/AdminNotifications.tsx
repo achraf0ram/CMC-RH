@@ -162,11 +162,17 @@ export const AdminNotifications = () => {
 
   // دالة توليد نص الإشعار حسب النوع
   const getNotificationText = (notif: NotificationItem, language: string, userName: string) => {
-    switch (notif.type) {
-      case 'newUser':
-        return language === 'ar'
-          ? `تم إنشاء حساب جديد باسم ${userName}`
-          : `${userName} a créé un nouveau compte`;
+    // استخراج نوع الطلب من notif.type أو من extractRequestType
+    let requestTypeKey = notif.type;
+    if (notif.type === 'request' && notif.data) {
+      const extracted = extractRequestType(notif);
+      if (extracted) requestTypeKey = extracted;
+    }
+    // جلب اسم نوع الطلب المناسب للغة
+    const typeInfo = getTypeInfo(requestTypeKey, t);
+    const typeLabel = typeInfo.label;
+
+    switch (requestTypeKey) {
       case 'vacationRequest':
       case 'workCertificate':
       case 'missionOrder':
@@ -174,8 +180,12 @@ export const AdminNotifications = () => {
       case 'annualIncome':
       case 'request':
         return language === 'ar'
-          ? `${userName} أرسل طلب`
-          : `${userName} a envoyé une demande`;
+          ? `${userName} أرسل ${typeLabel}`
+          : `${userName} a envoyé une ${typeLabel.toLowerCase()}`;
+      case 'newUser':
+        return language === 'ar'
+          ? `تم إنشاء حساب جديد باسم ${userName}`
+          : `${userName} a créé un nouveau compte`;
       case 'urgent':
         return language === 'ar'
           ? `إشعار عاجل من ${userName}`
@@ -203,8 +213,6 @@ export const AdminNotifications = () => {
                 (notif.full_name && notif.full_name.trim()) ||
                 (notif.user?.name && notif.user.name.trim()) ||
                 (extractedFromBody && extractedFromBody.trim()) ||
-                (notif.user?.full_name && notif.user.full_name.trim()) ||
-                (notif.user?.fullname && notif.user.fullname.trim()) ||
                 '';
               if (!userName) userName = language === 'ar' ? 'مستخدم غير معروف' : 'Utilisateur inconnu';
               if (process.env.NODE_ENV === 'development') {
