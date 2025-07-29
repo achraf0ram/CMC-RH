@@ -3,9 +3,10 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { BarChart3, Calendar, CheckCircle, FileText, Banknote } from "lucide-react";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { axiosInstance } from './Api/axios';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from "../contexts/AuthContext";
 
 export const Dashboard = () => {
   const { t } = useLanguage();
@@ -20,8 +21,13 @@ export const Dashboard = () => {
   const [missionOrders, setMissionOrders] = useState([]);
   const [workCertificates, setWorkCertificates] = useState([]);
   const [shownReplies, setShownReplies] = useState<string[]>([]);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
+    if (user?.is_admin) {
+      navigate("/admin/dashboard", { replace: true });
+    }
     axiosInstance.get("/vacation-requests/pending/count")
       .then(res => setPendingCount(res.data.count))
       .catch(() => setPendingCount(0));
@@ -64,7 +70,7 @@ export const Dashboard = () => {
           setShownReplies(prev => [...prev, firstNewReply.id.toString()]);
         }
       });
-  }, [toast, t, shownReplies]);
+  }, [toast, t, shownReplies, user, navigate]);
 
   const stats = [   
     {

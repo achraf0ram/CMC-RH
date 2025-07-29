@@ -78,6 +78,7 @@ class WorkCertificateController extends Controller
             ]),
         ]);
         // إشعار لحظي للأدمين
+        try {
         event(new \App\Events\NewNotification([
             'id' => $certificate->id,
             'title' => 'طلب شهادة عمل جديد',
@@ -85,6 +86,9 @@ class WorkCertificateController extends Controller
             'type' => 'workCertificate',
             'user_id' => \Auth::id(),
         ]));
+        } catch (\Exception $e) {
+            \Log::error('Broadcast error: ' . $e->getMessage());
+        }
 
         // إشعار للمستخدم
         \App\Models\UserNotification::create([

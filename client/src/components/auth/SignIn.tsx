@@ -52,6 +52,7 @@ export const SignIn = () => {
         };
         await waitForUser();
 
+        // إذا كان أدمن، وجهه للوحة تحكم الأدمن
         if (isAdmin) {
           navigate("/admin/dashboard", { replace: true });
         } else {

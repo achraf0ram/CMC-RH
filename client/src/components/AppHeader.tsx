@@ -20,6 +20,7 @@ import axiosInstance from '@/components/Api/axios';
 import { createEcho } from '../lib/echo';
 import { ImageIcon, AlertTriangle, Send, FileText, Calendar, ClipboardCheck, CreditCard, DollarSign } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { playNotificationSound } from '@/utils/sounds';
 
 // Context لمشاركة رسائل الشات
 export const ChatMessagesContext = createContext<{
@@ -151,33 +152,63 @@ export const AppHeader = () => {
   // عند فتح القائمة، اعتبر كل الإشعارات مقروءة في backend
   const handleNotifOpenChange = (open: boolean) => {
     setNotifOpen(open);
-    if (open && user && user.is_admin) {
-      // تحديث عدد الإشعارات فوراً عند الفتح
-      axiosInstance.get('/admin/notifications/unread-count').then(res => {
+    if (open) {
+      // عند فتح الإشعارات، أعد جلب العداد
+      const fetchNotifCount = async () => {
+        if (user && user.is_admin) {
+          const res = await axiosInstance.get('/admin/notifications/unread-count');
         setNotifCount(res.data.count || 0);
-      });
+        }
+      };
+      fetchNotifCount();
+      
       // ثم اعتبارها مقروءة
+      if (user && user.is_admin) {
       axiosInstance.post('/admin/notifications/mark-all-read').then(() => {
         setNotifCount(0);
       });
+      }
     }
   };
 
   // إشعارات المستخدم العادي
   useEffect(() => {
+    const fetchUserNotifCount = async () => {
     if (user && !user.is_admin) {
-      import('@/components/Api/axios').then(m => m.default.get('/notifications')).then(res => {
+        try {
+          const res = await axiosInstance.get('/notifications');
         const notifs = Array.isArray(res.data) ? res.data : [];
         setUserNotifs(notifs);
         setUserNotifCount(notifs.filter(n => !n.is_read).length);
-      });
-    }
-  }, [user, userNotifOpen]);
+        } catch (error) {
+          console.error('❌ خطأ في جلب إشعارات المستخدم:', error);
+        }
+      }
+    };
+
+    fetchUserNotifCount();
+    
+    // إزالة التحديث الدوري - التحديث سيحدث فقط عند التفاعل
+  }, [user]);
 
   const handleUserNotifOpenChange = (open: boolean) => {
     setUserNotifOpen(open);
     if (open && user && !user.is_admin) {
-      import('@/components/Api/axios').then(m => m.default.post('/notifications/read-all')).then(() => {
+      // عند فتح الإشعارات، أعد جلب العداد
+      const fetchUserNotifCount = async () => {
+        try {
+          const res = await axiosInstance.get('/notifications');
+          const notifs = Array.isArray(res.data) ? res.data : [];
+          setUserNotifs(notifs);
+          setUserNotifCount(notifs.filter(n => !n.is_read).length);
+        } catch (error) {
+          console.error('❌ خطأ في جلب إشعارات المستخدم:', error);
+        }
+      };
+      fetchUserNotifCount();
+      
+      // ثم اعتبارها مقروءة
+      axiosInstance.post('/notifications/read-all').then(() => {
         setUserNotifCount(0);
         setUserNotifs(prev => prev.map(n => ({ ...n, is_read: true })));
       });
@@ -243,8 +274,12 @@ export const AppHeader = () => {
       if (!user) return;
       if (user.is_admin) {
         setNotifCount((prev) => prev + 1);
+        // تشغيل صوت الإشعار
+        playNotificationSound();
       } else {
         setUserNotifCount((prev) => prev + 1);
+        // تشغيل صوت الإشعار
+        playNotificationSound();
       }
     });
 
@@ -254,6 +289,8 @@ export const AppHeader = () => {
       adminNotifChannel.listen('NewAdminNotification', (data: any) => {
         console.log('Admin notification received via admin-notifications channel');
         setNotifCount((prev) => prev + 1);
+        // تشغيل صوت الإشعار
+        playNotificationSound();
       });
     }
 
@@ -424,6 +461,44 @@ export const AppHeader = () => {
       }
     };
     fetchNotifCount();
+    
+    // إزالة التحديث الدوري - التحديث سيحدث فقط عند التفاعل
+  }, [user]);
+
+  // استماع لحدث تحديث عداد الإشعارات من AdminNotifications
+  useEffect(() => {
+    const handleUpdateNotificationCount = async () => {
+      if (user && user.is_admin) {
+        const res = await axiosInstance.get('/admin/notifications/unread-count');
+        setNotifCount(res.data.count || 0);
+      }
+    };
+
+    window.addEventListener('updateNotificationCount', handleUpdateNotificationCount);
+    return () => {
+      window.removeEventListener('updateNotificationCount', handleUpdateNotificationCount);
+    };
+  }, [user]);
+
+  // استماع لحدث تحديث عداد إشعارات المستخدم العادي
+  useEffect(() => {
+    const handleUpdateUserNotificationCount = async () => {
+      if (user && !user.is_admin) {
+        try {
+          const res = await axiosInstance.get('/notifications');
+          const notifs = Array.isArray(res.data) ? res.data : [];
+          setUserNotifs(notifs);
+          setUserNotifCount(notifs.filter(n => !n.is_read).length);
+        } catch (error) {
+          console.error('❌ خطأ في جلب إشعارات المستخدم:', error);
+        }
+      }
+    };
+
+    window.addEventListener('updateUserNotificationCount', handleUpdateUserNotificationCount);
+    return () => {
+      window.removeEventListener('updateUserNotificationCount', handleUpdateUserNotificationCount);
+    };
   }, [user]);
 
   // 1. أضف useRef لتتبع آخر ID إشعار تم عرضه
@@ -444,6 +519,7 @@ export const AppHeader = () => {
       const notifTitle = data?.notification?.title_ar || data?.notification?.title_fr || data?.title || 'إشعار جديد';
       if (notifId && notifId !== lastNotifIdRef.current) {
         lastNotifIdRef.current = notifId;
+        // تحديث العداد فوراً
         setNotifCount((prev) => prev + 1);
         setNotifBubbleText(notifTitle);
         setShowNotifBubble(true);
@@ -537,8 +613,10 @@ export const AppHeader = () => {
     }
   };
 
-  // أعد دالة getUserNotifTitle كما كانت:
-  function getUserNotifTitle(notif: any, language: string) {
+  // دالة مساعدة للحصول على عنوان الإشعار للمستخدم
+  function getUserNotifTitle(notif: any, language: string): string {
+    // فحص notif.type مباشرة
+    if (notif.type) {
     const typeMap: any = {
       workCertificate: language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
       vacationRequest: language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
@@ -550,29 +628,223 @@ export const AppHeader = () => {
       mission_orders: language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
       salary_domiciliations: language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
       annual_incomes: language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
-    };
-    if (notif.type && typeMap[notif.type]) return typeMap[notif.type];
-    if (notif.data) {
-      try {
-        const data = typeof notif.data === 'string' ? JSON.parse(notif.data) : notif.data;
-        if (data.request_type && typeMap[data.request_type]) return typeMap[data.request_type];
-      } catch {}
+        // إضافة أنواع إضافية لإشعارات إضافة الملفات
+        'file_upload_work_certificates': language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
+        'file_upload_vacation_requests': language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
+        'file_upload_mission_orders': language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
+        'file_upload_salary_domiciliations': language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
+        'file_upload_annual_incomes': language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
+        // إضافة أنواع إضافية لإشعارات إضافة الملفات
+        'file_ready_work_certificates': language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
+        'file_ready_vacation_requests': language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
+        'file_ready_mission_orders': language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
+        'file_ready_salary_domiciliations': language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
+        'file_ready_annual_incomes': language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
+        // إضافة أنواع إضافية لإشعارات إضافة الملفات
+        'admin_file_upload_work_certificates': language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
+        'admin_file_upload_vacation_requests': language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
+        'admin_file_upload_mission_orders': language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
+        'admin_file_upload_salary_domiciliations': language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
+        'admin_file_upload_annual_incomes': language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
+        // إضافة أنواع إضافية لإشعارات approved
+        'approved_work_certificates': language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
+        'approved_vacation_requests': language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
+        'approved_mission_orders': language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
+        'approved_salary_domiciliations': language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
+        'approved_annual_incomes': language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
+        // إضافة أنواع إضافية لإشعارات approved
+        'file_accepted_work_certificates': language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
+        'file_accepted_vacation_requests': language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
+        'file_accepted_mission_orders': language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
+        'file_accepted_salary_domiciliations': language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
+        'file_accepted_annual_incomes': language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
+        // إضافة أنواع إضافية لإشعارات waiting_admin_file
+        'waiting_admin_file': null // سنستخرج النوع من body_ar/body_fr
+      };
+      
+      // إذا كان النوع معروف، استخدمه
+      if (typeMap[notif.type] && typeMap[notif.type] !== null) {
+        return typeMap[notif.type];
+      }
+      
+      // إذا كان النوع waiting_admin_file، استخرج النوع من body_ar/body_fr
+      if (notif.type === 'waiting_admin_file') {
+        const bodyAr = notif.body_ar || '';
+        const bodyFr = notif.body_fr || '';
+        
+        // البحث عن نوع الطلب في النص العربي
+        if (bodyAr.includes('نوع الطلب: work_certificates')) {
+          return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
+        }
+        if (bodyAr.includes('نوع الطلب: vacation_requests')) {
+          return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
+        }
+        if (bodyAr.includes('نوع الطلب: mission_orders')) {
+          return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
+        }
+        if (bodyAr.includes('نوع الطلب: salary_domiciliations')) {
+          return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
+        }
+        if (bodyAr.includes('نوع الطلب: annual_incomes')) {
+          return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
+        }
+        
+        // البحث عن نوع الطلب في النص الفرنسي
+        if (bodyFr.includes('Type de demande: work_certificates')) {
+          return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
+        }
+        if (bodyFr.includes('Type de demande: vacation_requests')) {
+          return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
+        }
+        if (bodyFr.includes('Type de demande: mission_orders')) {
+          return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
+        }
+        if (bodyFr.includes('Type de demande: salary_domiciliations')) {
+          return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
+        }
+        if (bodyFr.includes('Type de demande: annual_incomes')) {
+          return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
+        }
+      }
+      
+      return (language === 'ar' ? 'طلب جديد' : 'Nouvelle demande');
     }
-    // إذا لم تجد أي نوع، استخدم العنوان الافتراضي
-    return (language === 'ar' ? notif.title_ar : notif.title_fr) || (language === 'ar' ? 'طلب جديد' : 'Nouvelle demande');
+    
+    // فحص body_ar و body_fr للبحث عن "نوع الطلب:"
+    const bodyAr = notif.body_ar || '';
+    const bodyFr = notif.body_fr || '';
+    
+    // البحث عن نوع الطلب في النص العربي
+    if (bodyAr.includes('نوع الطلب: work_certificates')) {
+      return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
+    }
+    if (bodyAr.includes('نوع الطلب: vacation_requests')) {
+      return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
+    }
+    if (bodyAr.includes('نوع الطلب: mission_orders')) {
+      return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
+    }
+    if (bodyAr.includes('نوع الطلب: salary_domiciliations')) {
+      return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
+    }
+    if (bodyAr.includes('نوع الطلب: annual_incomes')) {
+      return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
+    }
+    
+    // البحث عن نوع الطلب في النص الفرنسي
+    if (bodyFr.includes('Type de demande: work_certificates')) {
+      return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
+    }
+    if (bodyFr.includes('Type de demande: vacation_requests')) {
+      return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
+    }
+    if (bodyFr.includes('Type de demande: mission_orders')) {
+      return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
+    }
+    if (bodyFr.includes('Type de demande: salary_domiciliations')) {
+      return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
+    }
+    if (bodyFr.includes('Type de demande: annual_incomes')) {
+      return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
+    }
+    
+    // البحث عن نوع الطلب في النص العربي لإشعارات إضافة الملفات (بدون تحديد نوع)
+    if (bodyAr.includes('تم تجهيز ملفك')) {
+      // محاولة استخراج نوع الطلب من النص
+      if (bodyAr.includes('شهادة عمل') || bodyAr.includes('work_certificates')) {
+        return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
+      }
+      if (bodyAr.includes('طلب إجازة') || bodyAr.includes('vacation_requests')) {
+        return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
+      }
+      if (bodyAr.includes('أمر مهمة') || bodyAr.includes('mission_orders')) {
+        return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
+      }
+      if (bodyAr.includes('توطين الراتب') || bodyAr.includes('salary_domiciliations')) {
+        return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
+      }
+      if (bodyAr.includes('شهادة دخل سنوي') || bodyAr.includes('annual_incomes')) {
+        return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
+      }
+    }
+    
+    // البحث عن نوع الطلب في النص الفرنسي لإشعارات إضافة الملفات (بدون تحديد نوع)
+    if (bodyFr.includes('Votre fichier a été accepté')) {
+      // محاولة استخراج نوع الطلب من النص
+      if (bodyFr.includes('Attestation de travail') || bodyFr.includes('work_certificates')) {
+        return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
+      }
+      if (bodyFr.includes('Demande de congé') || bodyFr.includes('vacation_requests')) {
+        return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
+      }
+      if (bodyFr.includes('Ordre de mission') || bodyFr.includes('mission_orders')) {
+        return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
+      }
+      if (bodyFr.includes('Domiciliation de salaire') || bodyFr.includes('salary_domiciliations')) {
+        return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
+      }
+      if (bodyFr.includes('Attestation de revenus annuels') || bodyFr.includes('annual_incomes')) {
+        return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
+      }
+    }
+    
+    // البحث عن نوع الطلب في النص العربي لإشعارات approved
+    if (bodyAr.includes('تم قبول طلبك')) {
+      // محاولة استخراج نوع الطلب من النص
+      if (bodyAr.includes('شهادة عمل') || bodyAr.includes('work_certificates')) {
+        return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
+      }
+      if (bodyAr.includes('طلب إجازة') || bodyAr.includes('vacation_requests')) {
+        return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
+      }
+      if (bodyAr.includes('أمر مهمة') || bodyAr.includes('mission_orders')) {
+        return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
+      }
+      if (bodyAr.includes('توطين الراتب') || bodyAr.includes('salary_domiciliations')) {
+        return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
+      }
+      if (bodyAr.includes('شهادة دخل سنوي') || bodyAr.includes('annual_incomes')) {
+        return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
+      }
+    }
+    
+    // البحث عن نوع الطلب في النص الفرنسي لإشعارات approved
+    if (bodyFr.includes('Votre fichier a été accepté')) {
+      // محاولة استخراج نوع الطلب من النص
+      if (bodyFr.includes('Attestation de travail') || bodyFr.includes('work_certificates')) {
+        return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
+      }
+      if (bodyFr.includes('Demande de congé') || bodyFr.includes('vacation_requests')) {
+        return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
+      }
+      if (bodyFr.includes('Ordre de mission') || bodyFr.includes('mission_orders')) {
+        return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
+      }
+      if (bodyFr.includes('Domiciliation de salaire') || bodyFr.includes('salary_domiciliations')) {
+        return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
+      }
+      if (bodyFr.includes('Attestation de revenus annuels') || bodyFr.includes('annual_incomes')) {
+        return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
+      }
+    }
+    
+    // إذا لم تجد نوع الطلب، استخدم العنوان الافتراضي
+    return (language === 'ar' ? 'طلب جديد' : 'Nouvelle demande');
   }
 
-  // أعد دالة اللون القديمة:
+  // دالة اللون للعناوين - تستخدم الأزرق دائماً لأن العناوين الآن هي أسماء أنواع الطلبات
   function getNotifTitleColorUser(notif: any, language: string) {
-    const status = notif.status || notif.request_status || '';
-    
-    // تحديد اللون حسب الحالة
-    if (status === 'rejected') return 'text-red-700';
-    if (status === 'approved') return 'text-green-700';
-    if (status === 'waiting_admin_file') return 'text-orange-600';
-    if (status === 'pending' || status === '') return 'text-blue-700';
-    
-    // إذا لم تكن هناك حالة محددة، استخدم اللون الأزرق
+    const status = (notif.status || notif.request_status || notif.type || '').toLowerCase();
+    if (status === 'pending') return 'text-gray-500';
+    if (
+      status === 'approved' ||
+      status === 'file_ready' ||
+      status === 'file_accepted' ||
+      status === 'file_uploaded' ||
+      (notif.body_ar?.includes('تم تجهيز ملفك') || notif.body_fr?.includes('Votre fichier a été accepté'))
+    ) return 'text-green-600';
+    if (status === 'rejected') return 'text-red-600';
+    if (status === 'waiting_admin_file') return 'text-yellow-600';
     return 'text-blue-700';
   }
 
@@ -587,6 +859,28 @@ export const AppHeader = () => {
 
   // دالة مساعدة لاستخراج نوع الطلب من الإشعار
   function extractRequestType(notif: any): string | null {
+    // فحص notif.data أولاً
+    if (notif.data) {
+      try {
+        const data = typeof notif.data === 'string' ? JSON.parse(notif.data) : notif.data;
+        if (data.request_type) {
+          return data.request_type;
+        }
+        if (data.type) {
+          return data.type;
+        }
+        if (data.request_type_id) {
+          return data.request_type_id;
+        }
+        if (data.type_id) {
+          return data.type_id;
+        }
+      } catch (e) {
+        console.error('Error parsing notification data:', e);
+      }
+    }
+    
+    // فحص notif.type مباشرة
     if (notif.type) {
       const typeMap: any = {
         workCertificate: 'workCertificate',
@@ -598,28 +892,209 @@ export const AppHeader = () => {
         vacation_requests: 'vacationRequest',
         mission_orders: 'missionOrder',
         salary_domiciliations: 'salaryDomiciliation',
-        annual_incomes: 'annualIncome'
+        annual_incomes: 'annualIncome',
+        // إضافة أنواع إضافية لإشعارات إضافة الملفات
+        'file_upload_work_certificates': 'workCertificate',
+        'file_upload_vacation_requests': 'vacationRequest',
+        'file_upload_mission_orders': 'missionOrder',
+        'file_upload_salary_domiciliations': 'salaryDomiciliation',
+        'file_upload_annual_incomes': 'annualIncome',
+        // إضافة أنواع إضافية لإشعارات إضافة الملفات
+        'file_ready_work_certificates': 'workCertificate',
+        'file_ready_vacation_requests': 'vacationRequest',
+        'file_ready_mission_orders': 'missionOrder',
+        'file_ready_salary_domiciliations': 'salaryDomiciliation',
+        'file_ready_annual_incomes': 'annualIncome',
+        // إضافة أنواع إضافية لإشعارات إضافة الملفات
+        'admin_file_upload_work_certificates': 'workCertificate',
+        'admin_file_upload_vacation_requests': 'vacationRequest',
+        'admin_file_upload_mission_orders': 'missionOrder',
+        'admin_file_upload_salary_domiciliations': 'salaryDomiciliation',
+        'admin_file_upload_annual_incomes': 'annualIncome',
+        // إضافة أنواع إضافية لإشعارات approved
+        'approved_work_certificates': 'workCertificate',
+        'approved_vacation_requests': 'vacationRequest',
+        'approved_mission_orders': 'missionOrder',
+        'approved_salary_domiciliations': 'salaryDomiciliation',
+        'approved_annual_incomes': 'annualIncome',
+        // إضافة أنواع إضافية لإشعارات approved
+        'file_accepted_work_certificates': 'workCertificate',
+        'file_accepted_vacation_requests': 'vacationRequest',
+        'file_accepted_mission_orders': 'missionOrder',
+        'file_accepted_salary_domiciliations': 'salaryDomiciliation',
+        'file_accepted_annual_incomes': 'annualIncome',
+        // إضافة أنواع إضافية لإشعارات waiting_admin_file
+        'waiting_admin_file': null // سنستخرج النوع من body_ar/body_fr
       };
-      return typeMap[notif.type] || null;
-    }
-    
-    if (notif.data) {
-      try {
-        const data = typeof notif.data === 'string' ? JSON.parse(notif.data) : notif.data;
-        if (data.request_type) {
-          const typeMap: any = {
-            workCertificate: 'workCertificate',
-            vacationRequest: 'vacationRequest',
-            missionOrder: 'missionOrder', 
-            salaryDomiciliation: 'salaryDomiciliation',
-            annualIncome: 'annualIncome'
-          };
-          return typeMap[data.request_type] || null;
+      
+      // إذا كان النوع معروف، استخدمه
+      if (typeMap[notif.type] && typeMap[notif.type] !== null) {
+        return typeMap[notif.type];
+      }
+      
+      // إذا كان النوع waiting_admin_file، استخرج النوع من body_ar/body_fr
+      if (notif.type === 'waiting_admin_file') {
+        const bodyAr = notif.body_ar || '';
+        const bodyFr = notif.body_fr || '';
+        
+        // البحث عن نوع الطلب في النص العربي
+        if (bodyAr.includes('نوع الطلب: work_certificates')) {
+          return 'workCertificate';
         }
-      } catch {}
+        if (bodyAr.includes('نوع الطلب: vacation_requests')) {
+          return 'vacationRequest';
+        }
+        if (bodyAr.includes('نوع الطلب: mission_orders')) {
+          return 'missionOrder';
+        }
+        if (bodyAr.includes('نوع الطلب: salary_domiciliations')) {
+          return 'salaryDomiciliation';
+        }
+        if (bodyAr.includes('نوع الطلب: annual_incomes')) {
+          return 'annualIncome';
+        }
+        
+        // البحث عن نوع الطلب في النص الفرنسي
+        if (bodyFr.includes('Type de demande: work_certificates')) {
+          return 'workCertificate';
+        }
+        if (bodyFr.includes('Type de demande: vacation_requests')) {
+          return 'vacationRequest';
+        }
+        if (bodyFr.includes('Type de demande: mission_orders')) {
+          return 'missionOrder';
+        }
+        if (bodyFr.includes('Type de demande: salary_domiciliations')) {
+          return 'salaryDomiciliation';
+        }
+        if (bodyFr.includes('Type de demande: annual_incomes')) {
+          return 'annualIncome';
+        }
+      }
+      
+      return notif.type;
     }
     
-    return null;
+    // فحص body_ar و body_fr للبحث عن "نوع الطلب:"
+    const bodyAr = notif.body_ar || '';
+    const bodyFr = notif.body_fr || '';
+    
+    // البحث عن نوع الطلب في النص العربي
+    if (bodyAr.includes('نوع الطلب: work_certificates')) {
+      return 'workCertificate';
+    }
+    if (bodyAr.includes('نوع الطلب: vacation_requests')) {
+      return 'vacationRequest';
+    }
+    if (bodyAr.includes('نوع الطلب: mission_orders')) {
+      return 'missionOrder';
+    }
+    if (bodyAr.includes('نوع الطلب: salary_domiciliations')) {
+      return 'salaryDomiciliation';
+    }
+    if (bodyAr.includes('نوع الطلب: annual_incomes')) {
+      return 'annualIncome';
+    }
+    
+    // البحث عن نوع الطلب في النص الفرنسي
+    if (bodyFr.includes('Type de demande: work_certificates')) {
+      return 'workCertificate';
+    }
+    if (bodyFr.includes('Type de demande: vacation_requests')) {
+      return 'vacationRequest';
+    }
+    if (bodyFr.includes('Type de demande: mission_orders')) {
+      return 'missionOrder';
+    }
+    if (bodyFr.includes('Type de demande: salary_domiciliations')) {
+      return 'salaryDomiciliation';
+    }
+    if (bodyFr.includes('Type de demande: annual_incomes')) {
+      return 'annualIncome';
+    }
+    
+    // البحث عن نوع الطلب في النص العربي لإشعارات إضافة الملفات (بدون تحديد نوع)
+    if (bodyAr.includes('تم تجهيز ملفك')) {
+      // محاولة استخراج نوع الطلب من النص
+      if (bodyAr.includes('شهادة عمل') || bodyAr.includes('work_certificates')) {
+        return 'workCertificate';
+      }
+      if (bodyAr.includes('طلب إجازة') || bodyAr.includes('vacation_requests')) {
+        return 'vacationRequest';
+      }
+      if (bodyAr.includes('أمر مهمة') || bodyAr.includes('mission_orders')) {
+        return 'missionOrder';
+      }
+      if (bodyAr.includes('توطين الراتب') || bodyAr.includes('salary_domiciliations')) {
+        return 'salaryDomiciliation';
+      }
+      if (bodyAr.includes('شهادة دخل سنوي') || bodyAr.includes('annual_incomes')) {
+        return 'annualIncome';
+      }
+    }
+    
+    // البحث عن نوع الطلب في النص الفرنسي لإشعارات إضافة الملفات (بدون تحديد نوع)
+    if (bodyFr.includes('Votre fichier a été accepté')) {
+      // محاولة استخراج نوع الطلب من النص
+      if (bodyFr.includes('Attestation de travail') || bodyFr.includes('work_certificates')) {
+        return 'workCertificate';
+      }
+      if (bodyFr.includes('Demande de congé') || bodyFr.includes('vacation_requests')) {
+        return 'vacationRequest';
+      }
+      if (bodyFr.includes('Ordre de mission') || bodyFr.includes('mission_orders')) {
+        return 'missionOrder';
+      }
+      if (bodyFr.includes('Domiciliation de salaire') || bodyFr.includes('salary_domiciliations')) {
+        return 'salaryDomiciliation';
+      }
+      if (bodyFr.includes('Attestation de revenus annuels') || bodyFr.includes('annual_incomes')) {
+        return 'annualIncome';
+      }
+    }
+    
+    // البحث عن نوع الطلب في النص العربي لإشعارات approved
+    if (bodyAr.includes('تم قبول طلبك')) {
+      // محاولة استخراج نوع الطلب من النص
+      if (bodyAr.includes('شهادة عمل') || bodyAr.includes('work_certificates')) {
+        return 'workCertificate';
+      }
+      if (bodyAr.includes('طلب إجازة') || bodyAr.includes('vacation_requests')) {
+        return 'vacationRequest';
+      }
+      if (bodyAr.includes('أمر مهمة') || bodyAr.includes('mission_orders')) {
+        return 'missionOrder';
+      }
+      if (bodyAr.includes('توطين الراتب') || bodyAr.includes('salary_domiciliations')) {
+        return 'salaryDomiciliation';
+      }
+      if (bodyAr.includes('شهادة دخل سنوي') || bodyAr.includes('annual_incomes')) {
+        return 'annualIncome';
+      }
+    }
+    
+    // البحث عن نوع الطلب في النص الفرنسي لإشعارات approved
+    if (bodyFr.includes('Votre fichier a été accepté')) {
+      // محاولة استخراج نوع الطلب من النص
+      if (bodyFr.includes('Attestation de travail') || bodyFr.includes('work_certificates')) {
+        return 'workCertificate';
+      }
+      if (bodyFr.includes('Demande de congé') || bodyFr.includes('vacation_requests')) {
+        return 'vacationRequest';
+      }
+      if (bodyFr.includes('Ordre de mission') || bodyFr.includes('mission_orders')) {
+        return 'missionOrder';
+      }
+      if (bodyFr.includes('Domiciliation de salaire') || bodyFr.includes('salary_domiciliations')) {
+        return 'salaryDomiciliation';
+      }
+      if (bodyFr.includes('Attestation de revenus annuels') || bodyFr.includes('annual_incomes')) {
+        return 'annualIncome';
+      }
+    }
+    
+    // إذا لم تجد نوع الطلب، استخدم العنوان الافتراضي
+    return (language === 'ar' ? 'طلب جديد' : 'Nouvelle demande');
   }
 
   // دالة توليد رابط الصورة بشكل آمن (مثل UrgentChatButton)
@@ -637,6 +1112,117 @@ export const AppHeader = () => {
   };
 
   const [selectedNotificationId, setSelectedNotificationId] = useState<number | null>(null);
+
+  // تحديث فوري عند التفاعل مع الصفحة
+  useEffect(() => {
+    let lastUpdate = 0;
+    const UPDATE_THROTTLE = 2000; // تحديث كل ثانيتين كحد أقصى
+
+    const handleUserInteraction = () => {
+      const now = Date.now();
+      if (now - lastUpdate < UPDATE_THROTTLE) return; // تجنب التحديث المتكرر
+      lastUpdate = now;
+
+      // تحديث إشعارات الأدمن
+      if (user && user.is_admin) {
+        axiosInstance.get('/admin/notifications/unread-count')
+          .then(res => setNotifCount(res.data.count || 0))
+          .catch(err => console.error('❌ خطأ في تحديث إشعارات الأدمن:', err));
+      }
+      
+      // تحديث إشعارات المستخدم العادي
+      if (user && !user.is_admin) {
+        axiosInstance.get('/notifications')
+          .then(res => {
+            const notifs = Array.isArray(res.data) ? res.data : [];
+            setUserNotifs(notifs);
+            setUserNotifCount(notifs.filter(n => !n.is_read).length);
+          })
+          .catch(err => console.error('❌ خطأ في تحديث إشعارات المستخدم:', err));
+      }
+    };
+
+    // تحديث عند العودة للصفحة
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        handleUserInteraction();
+      }
+    };
+
+    // تحديث عند تحميل الصفحة
+    const handlePageLoad = () => {
+      handleUserInteraction();
+    };
+
+    // إضافة مستمعي الأحداث للتفاعل (فقط الأحداث المهمة)
+    window.addEventListener('click', handleUserInteraction);
+    window.addEventListener('focus', handleUserInteraction);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('load', handlePageLoad);
+
+    return () => {
+      window.removeEventListener('click', handleUserInteraction);
+      window.removeEventListener('focus', handleUserInteraction);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('load', handlePageLoad);
+    };
+  }, [user]);
+
+  // دالة توليد النص المحسن لإشعارات المستخدم العادي حسب الحالة
+  const getUserNotificationText = (notif: any, language: string) => {
+    const title = (language === 'ar' ? notif.title_ar : notif.title_fr) || '';
+    const status = notif.status || notif.request_status || 'pending';
+    
+    // فحص النصوص المحددة أولاً
+    if (/تم تجهيز ملفك من الإدارة|votre fichier est prêt/i.test(title)) {
+      return language === 'ar' ? 'تم قبول ملفك ويمكنك تحميله من صفحة جميع الطلبات.' : 'Votre fichier a été accepté. Vous pouvez le télécharger depuis la page de toutes les demandes.';
+    }
+    
+    if (/تم قبول طلبك، بانتظار رفع ملف الإدارة|acceptée, en attente du fichier/i.test(title)) {
+      return language === 'ar' ? 'تمت الموافقة، انتظر ملف الإدارة.' : "En attente du fichier de l'admin.";
+    }
+    
+    if (/تم رفض طلبك|refusée/i.test(title)) {
+      return language === 'ar' ? 'تم الرفض بسبب نقص أو خطأ في الملف. يمكنك إعادة الطلب.' : 'Refusé pour dossier incomplet ou erreur. Vous pouvez refaire la demande.';
+    }
+    
+    if (/تم حفظ شهادة العمل بنجاح|sauvegardée avec succès/i.test(title)) {
+      return language === 'ar' ? 'تم إرسال الطلب وهو قيد المراجعة من الإدارة.' : "Votre demande a été envoyée et est en cours de révision par l'administration.";
+    }
+    
+    // النص حسب الحالة
+    switch (status) {
+      case 'approved':
+      case 'accepted':
+        return language === 'ar' ? 'تم قبول طلبك بنجاح.' : 'Votre demande a été acceptée avec succès.';
+        
+      case 'rejected':
+      case 'refused':
+        return language === 'ar' ? 'تم رفض طلبك. يمكنك إعادة المحاولة.' : 'Votre demande a été refusée. Vous pouvez réessayer.';
+        
+      case 'waiting_admin_file':
+        return language === 'ar' ? 'تم قبول طلبك، بانتظار ملف الإدارة.' : 'Votre demande a été acceptée, en attente du fichier de l\'admin.';
+        
+      case 'pending':
+      case 'submitted':
+        return language === 'ar' ? 'طلبك قيد المراجعة من الإدارة.' : 'Votre demande est en cours de révision par l\'administration.';
+        
+      case 'processing':
+        return language === 'ar' ? 'طلبك قيد المعالجة.' : 'Votre demande est en cours de traitement.';
+        
+      case 'completed':
+        return language === 'ar' ? 'تم إنجاز طلبك بنجاح.' : 'Votre demande a été complétée avec succès.';
+        
+      case 'cancelled':
+        return language === 'ar' ? 'تم إلغاء طلبك.' : 'Votre demande a été annulée.';
+        
+      case 'on_hold':
+        return language === 'ar' ? 'طلبك متوقف مؤقتاً.' : 'Votre demande est en attente.';
+        
+      default:
+        return language === 'ar' ? 'طلبك قيد المراجعة من الإدارة.' : 'Votre demande est en cours de révision par l\'administration.';
+    }
+  };
 
   return (
     <header className={cn(
@@ -668,27 +1254,27 @@ export const AppHeader = () => {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-72 md:w-80 cmc-card p-0">
-              <div style={{height: 300, minWidth: 320}} className="flex flex-col">
+            <DropdownMenuContent align="end" className="w-80 md:w-96 cmc-card p-0">
+              <div style={{height: 500, minWidth: 380, maxHeight: '90vh'}} className="flex flex-col">
                 <h4 className="font-semibold text-slate-800 mb-2 px-4 pt-3">{t('notifications')}</h4>
                 {userNotifs.length === 0 && <div className="text-gray-500 px-4">لا توجد إشعارات جديدة.</div>}
-                <div className="flex-1 overflow-y-auto px-2">
+                <div className="flex-1 overflow-y-auto px-2 pb-2">
                   {userNotifs.slice(0, visibleUserNotifCount).map((notif, idx) => {
                     const requestType = extractRequestType(notif);
                     const requestTypeName = getUserNotifTitle(notif, language);
                     const status = notif.status || notif.request_status || 'pending';
                     
                     return (
-                      <div key={notif.id || idx} className={`rounded p-2 mb-1 ${notif.is_read ? '' : 'bg-cmc-blue-light/20'}`}>
+                      <div key={notif.id || idx} className={`rounded p-2 mb-1 ${notif.is_read ? '' : 'bg-cmc-blue-light/20'} min-h-0`}>
                         {/* عنوان الإشعار: اسم نوع الطلب بلون الحالة */}
-                        <div className={`font-bold text-sm ${getNotifTitleColorUser(notif, language)}`}>
+                        <div className={`font-bold text-sm ${getNotifTitleColorUser(notif, language)} break-words`}>
                           {requestTypeName}
                         </div>
                         {/* نص الإشعار المحسن حسب الحالة مع اسم نوع الطلب */}
-                        <div className="text-xs text-gray-700 mt-1">
-                          {getStatusText(status, language, requestTypeName)}
+                        <div className="text-xs text-gray-700 mt-1 break-words leading-relaxed">
+                          {getUserNotificationText(notif, language)}
                         </div>
-                        <div className="text-xs text-gray-400 mt-1">{new Date(notif.created_at).toLocaleString(language === 'ar' ? 'ar-EG' : 'fr-FR')}</div>
+                        <div className="text-xs text-gray-400 mt-1 break-words">{new Date(notif.created_at).toLocaleString(language === 'ar' ? 'ar-EG' : 'fr-FR')}</div>
                       </div>
                     );
                   })}

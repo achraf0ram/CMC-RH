@@ -46,6 +46,7 @@ class SalaryDomiciliationController extends Controller
             ]),
         ]);
         // إشعار لحظي للأدمين
+        try {
         event(new \App\Events\NewNotification([
             'id' => $domiciliation->id,
             'title' => 'طلب توطين راتب جديد',
@@ -53,6 +54,9 @@ class SalaryDomiciliationController extends Controller
             'type' => 'salaryDomiciliation',
             'user_id' => \Auth::id(),
         ]));
+        } catch (\Exception $e) {
+            \Log::error('Broadcast error: ' . $e->getMessage());
+        }
         // إشعار للمستخدم
         \App\Models\UserNotification::create([
             'user_id' => \Auth::id(),

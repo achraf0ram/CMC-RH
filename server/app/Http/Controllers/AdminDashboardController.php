@@ -174,7 +174,12 @@ class AdminDashboardController extends Controller
 
     public function updateStatus(Request $request, $type, $id)
     {
-        \Log::info('updateStatus ENTRY', ['type' => $type, 'id' => $id, 'request' => $request->all()]);
+        \Log::info('updateStatus ENTRY', [
+            'type' => $type,
+            'id' => $id,
+            'request_all' => $request->all(),
+            'user' => auth()->user(),
+        ]);
         try {
             \Log::info('updateStatus: before validate');
             $validated = $request->validate([
@@ -194,6 +199,18 @@ class AdminDashboardController extends Controller
             if (!$req) {
                 \Log::error('Request not found', ['id' => $id, 'type' => $type]);
                 return response()->json(['message' => 'Request not found'], 404);
+            }
+
+            // تحقق من الحقول الأساسية في MissionOrder
+            if ($model === \App\Models\MissionOrder::class) {
+                $missing = [];
+                if (empty($req->user_id)) $missing[] = 'user_id';
+                if (empty($req->type)) $missing[] = 'type';
+                if (empty($req->full_name)) $missing[] = 'full_name';
+                if (!empty($missing)) {
+                    \Log::error('MissionOrder missing fields', ['id' => $id, 'fields' => $missing, 'req' => $req]);
+                    return response()->json(['message' => 'MissionOrder missing fields', 'fields' => $missing], 422);
+                }
             }
 
             if ($validated['status'] === 'approved') {
@@ -230,9 +247,31 @@ class AdminDashboardController extends Controller
             }
 
             \Log::info('updateStatus: END', ['req' => $req]);
-            return response()->json(['message' => 'Status updated successfully', 'data' => $req]);
+            return response()->json([
+                'message' => 'Status updated successfully',
+                'data' => [
+                    'id' => $req->id,
+                    'user_id' => $req->user_id,
+                    'full_name' => $req->full_name,
+                    'matricule' => $req->matricule,
+                    'status' => $req->status,
+                    'type' => $req->type,
+                    'file_path' => $req->file_path,
+                    'created_at' => $req->created_at,
+                    'updated_at' => $req->updated_at,
+                ]
+            ], 200, [], JSON_UNESCAPED_UNICODE);
         } catch (\Exception $e) {
-            \Log::error('updateStatus Exception', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            \Log::error('updateStatus Exception', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
+                'type' => $type,
+                'id' => $id,
+                'request_all' => $request->all(),
+                'user' => auth()->user(),
+            ]);
             return response()->json(['message' => 'Internal Server Error', 'error' => $e->getMessage()], 500);
         }
     }

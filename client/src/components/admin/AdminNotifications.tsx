@@ -8,6 +8,12 @@ import { useNavigate } from 'react-router-dom';
 import { getTypeInfo } from './typeInfo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
+// إضافة دالة لتحديث عداد الإشعارات في AppHeader
+const updateNotificationCount = () => {
+  // إرسال حدث مخصص لتحديث العداد
+  window.dispatchEvent(new CustomEvent('updateNotificationCount'));
+};
+
 interface NotificationItem {
   id: number;
   type: string; // دعم كل الأنواع
@@ -72,6 +78,7 @@ export const AdminNotifications: React.FC = () => {
           return [data.notification, ...prev];
         });
         // إخطار AppHeader بتحديث العداد
+        updateNotificationCount();
       } else if (data && data.id) {
         // fallback إذا لم يكن هناك notification كامل
         setNotifications(prev => {
@@ -79,6 +86,7 @@ export const AdminNotifications: React.FC = () => {
           return [data, ...prev];
         });
         // إخطار AppHeader بتحديث العداد
+        updateNotificationCount();
       }
     });
     return () => {

@@ -152,11 +152,16 @@ class MissionOrderController extends Controller
                 ->first();
             
             if ($notification) {
+                try {
                 event(new \App\Events\NewUserNotification($notification, Auth::id()));
+                } catch (\Exception $e) {
+                    \Log::error('Broadcast error (NewUserNotification): ' . $e->getMessage());
+                }
             }
 
             // إرسال إشعار لحظي عبر WebSocket
             \Log::info('Broadcasting notification event');
+            try {
             event(new \App\Events\NewNotification([
                 'id' => $missionOrder->id,
                 'title' => 'تم حفظ أمر المهمة بنجاح',
@@ -164,6 +169,9 @@ class MissionOrderController extends Controller
                 'type' => 'missionOrder',
                 'user_id' => Auth::id(),
             ]));
+            } catch (\Exception $e) {
+                \Log::error('Broadcast error (NewNotification): ' . $e->getMessage());
+            }
             \Log::info('Notification event broadcasted');
 
             Log::info('Mission order stored successfully', ['id' => $missionOrder->id]);

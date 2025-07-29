@@ -46,6 +46,7 @@ class AnnualIncomeController extends Controller
             ]),
         ]);
         // إشعار لحظي للأدمين
+        try {
         event(new \App\Events\NewNotification([
             'id' => $income->id,
             'title' => 'طلب شهادة دخل سنوي جديد',
@@ -53,6 +54,9 @@ class AnnualIncomeController extends Controller
             'type' => 'annualIncome',
             'user_id' => \Auth::id(),
         ]));
+        } catch (\Exception $e) {
+            \Log::error('Broadcast error: ' . $e->getMessage());
+        }
         // إشعار للمستخدم
         \App\Models\UserNotification::create([
             'user_id' => \Auth::id(),

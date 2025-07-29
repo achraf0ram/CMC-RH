@@ -162,7 +162,12 @@ class VacationRequestController extends Controller
                 'data' => json_encode(['vacation_request_id' => $vacationRequest->id]),
             ]);
 
-            event(new NewRequest($vacationRequest->makeHidden(['pdf_blob'])->toArray()));
+            // إشعار لحظي للأدمين
+            try {
+                event(new \App\Events\NewRequest($vacationRequest));
+            } catch (\Exception $e) {
+                \Log::error('Broadcast error: ' . $e->getMessage());
+            }
 
             Log::info('Vacation request stored successfully', ['id' => $vacationRequest->id]);
 

@@ -181,15 +181,23 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
     setRowLoading(prev => ({ ...prev, [rowKey]: true }));
     try {
       await api.post(`/admin/requests/${typeSlug}/${id}/status`, { status });
+      // إذا كانت الموافقة، غيّر الحالة محلياً إلى waiting_admin_file وافتح نافذة رفع الملف
+      if (status === 'approved') {
+        updateRequestStatusLocally(id, type, 'waiting_admin_file');
+        // ابحث عن الطلب الحالي وافتح نافذة رفع الملف له
+        const req = requests.find(r => r.id === id && r.type === type);
+        if (req) setUploadDialog({ open: true, req });
+      } else {
       updateRequestStatusLocally(id, type, status);
+      }
       toast({
         title: language === 'ar' ? 'تم تحديث الحالة' : 'Status Updated',
         description: language === 'ar' ? 'تم تحديث حالة الطلب بنجاح' : 'Request status updated successfully',
         variant: 'default',
         duration: 3000,
       });
-      // Immediately refresh data from backend
-      onRequestUpdate();
+      // لا تحدث الصفحة كلياً بعد الموافقة
+      // onRequestUpdate();
     } catch (error) {
       console.error('Failed to update status:', error);
       toast({
@@ -398,8 +406,8 @@ export const AdminRequestsTable: React.FC<AdminRequestsTableProps> = ({ requests
         variant: 'default',
         duration: 3000,
       });
-      // Immediately refresh data from backend
-      onRequestUpdate();
+      // لا تحدث الصفحة كلياً بعد رفع الملف
+      // onRequestUpdate();
     } catch (error) {
       toast({
         title: language === 'ar' ? 'فشل رفع الملف' : 'Failed to upload file',

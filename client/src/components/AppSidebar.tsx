@@ -46,7 +46,14 @@ export const AppSidebar = ({ isMobileOpen, setIsMobileOpen }: AppSidebarProps) =
 
   const adminMenuItem = { icon: ShieldCheck, name: 'adminDashboard', path: '/admin/dashboard' };
 
-  const finalMenuItems = user?.is_admin ? [...baseMenuItems, adminMenuItem] : baseMenuItems;
+  // عدل finalMenuItems بحيث لا يحتوي adminMenuItem إذا كان المستخدم أدمن
+  const finalMenuItems = user?.is_admin ? baseMenuItems : baseMenuItems;
+
+  // عند بناء baseMenuItems، إذا كان المستخدم أدمن احذف عنصر Accueil (home)
+  const filteredMenuItems = user?.is_admin ? baseMenuItems.filter(item => item.name !== 'home') : baseMenuItems;
+
+  // للمستخدم العادي، احذف "home" من finalMenuItems لتجنب التكرار
+  const regularUserMenuItems = user?.is_admin ? baseMenuItems : baseMenuItems.filter(item => item.name !== 'home');
 
   const handleSignOut = () => {
     logout();
@@ -123,7 +130,97 @@ export const AppSidebar = ({ isMobileOpen, setIsMobileOpen }: AppSidebarProps) =
 
         {/* Navigation */}
         <div className='flex-1 py-4 flex flex-col gap-2'>
-          {finalMenuItems.map((item) => (
+          {user?.is_admin ? (
+            <>
+              {/* رابط لوحة تحكم الأدمن */}
+              <Link
+                to="/admin/dashboard"
+                onClick={() => isMobile && setIsMobileOpen && setIsMobileOpen(false)}
+              >
+                <Button
+                  variant='ghost'
+                  className={cn(
+                    "flex justify-start items-center gap-3 w-full rounded-none px-4 h-12",
+                    "hover:bg-[#E8F5E9] hover:text-[#2E7D32]"
+                  )}>
+                  <ShieldCheck size={20} />
+                  {!collapsed && (
+                    <span
+                      className="block max-w-[170px] overflow-hidden whitespace-nowrap relative group"
+                      style={{ position: 'relative' }}
+                    >
+                      <span
+                        className="inline-block truncate group-hover:animate-marquee"
+                        style={{ minWidth: '100%' }}
+                      >
+                        {t("adminDashboard")}
+                      </span>
+                    </span>
+                  )}
+                </Button>
+              </Link>
+              {/* باقي الروابط للأدمن فقط */}
+              {filteredMenuItems.map((item) => (
+                <Link
+                  to={item.path}
+                  key={item.path}
+                  onClick={() => isMobile && setIsMobileOpen && setIsMobileOpen(false)} // Close mobile sidebar when clicking on a menu item
+                >
+                  <Button
+                    variant='ghost'
+                    className={cn(
+                      "flex justify-start items-center gap-3 w-full rounded-none px-4 h-12",
+                      "hover:bg-[#E8F5E9] hover:text-[#2E7D32]"
+                    )}>
+                    <item.icon size={20} />
+                    {!collapsed && (
+                      <span
+                        className='block max-w-[170px] overflow-hidden whitespace-nowrap relative group'
+                        style={{ position: 'relative' }}
+                      >
+                        <span
+                          className="inline-block truncate group-hover:animate-marquee"
+                          style={{ minWidth: '100%' }}
+                        >
+                          {t(item.name)}
+                        </span>
+                      </span>
+                    )}
+                  </Button>
+                </Link>
+              ))}
+            </>
+          ) : (
+            <>
+              {/* رابط لوحة تحكم المستخدم العادي */}
+              <Link
+                to="/"
+                onClick={() => isMobile && setIsMobileOpen && setIsMobileOpen(false)}
+              >
+                <Button
+                  variant='ghost'
+                  className={cn(
+                    "flex justify-start items-center gap-3 w-full rounded-none px-4 h-12",
+                    "hover:bg-[#E8F5E9] hover:text-[#2E7D32]"
+                  )}>
+                  <Home size={20} />
+                  {!collapsed && (
+                    <span
+                      className="block max-w-[170px] overflow-hidden whitespace-nowrap relative group"
+                      style={{ position: 'relative' }}
+                    >
+                      <span
+                        className="inline-block truncate group-hover:animate-marquee"
+                        style={{ minWidth: '100%' }}
+                      >
+                        {t("home")}
+                      </span>
+                    </span>
+                  )}
+                </Button>
+              </Link>
+              {/* باقي الروابط للمستخدم العادي */}
+              {regularUserMenuItems.map((item) => (
             <Link
               to={item.path}
               key={item.path}
@@ -152,6 +249,8 @@ export const AppSidebar = ({ isMobileOpen, setIsMobileOpen }: AppSidebarProps) =
               </Button>
             </Link>
           ))}
+            </>
+          )}
           <Link to="/settings">
             <Button
               variant="ghost"

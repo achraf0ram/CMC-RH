@@ -17,6 +17,8 @@ return new class extends Migration
             $table->unsignedBigInteger('to_user_id');
             $table->text('message')->nullable();
             $table->string('image_path')->nullable();
+            $table->string('file_path')->nullable();
+            $table->string('file_type')->nullable();
             $table->boolean('is_urgent')->default(false);
             $table->boolean('is_read')->default(false);
             $table->timestamps();

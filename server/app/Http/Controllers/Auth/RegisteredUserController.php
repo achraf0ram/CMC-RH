@@ -51,6 +51,7 @@ class RegisteredUserController extends Controller
                 'data' => json_encode(['user_id' => $user->id]),
             ]);
             // إشعار لحظي للأدمين
+            try {
             event(new \App\Events\NewNotification([
                 'id' => $user->id,
                 'title' => 'تسجيل مستخدم جديد',
@@ -58,6 +59,9 @@ class RegisteredUserController extends Controller
                 'type' => 'newUser',
                 'user_id' => $user->id,
             ]));
+            } catch (\Exception $e) {
+                \Log::error('Broadcast error: ' . $e->getMessage());
+            }
 
             event(new Registered($user));
 
