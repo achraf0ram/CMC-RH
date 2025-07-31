@@ -62,9 +62,10 @@ class AnnualIncomeController extends Controller
             'user_id' => \Auth::id(),
             'title_ar' => 'تم حفظ شهادة الدخل السنوي بنجاح',
             'title_fr' => 'Attestation de revenus annuels sauvegardée avec succès',
-            'body_ar' => 'تم إرسال طلبك إلى الإدارة. الحالة: في انتظار المراجعة.',
-            'body_fr' => "Votre demande a été envoyée à l'administration. Statut: en attente de validation.",
+            'body_ar' => 'تم إرسال طلب شهادة الدخل السنوي إلى الإدارة. الحالة: في انتظار المراجعة.',
+            'body_fr' => "Votre demande d'attestation de revenus annuels a été envoyée à l'administration. Statut: en attente de validation.",
             'type' => 'annualIncome',
+            'status' => $income->status ?? 'pending',
             'is_read' => false,
             'data' => json_encode(['annual_income_id' => $income->id]),
         ]);

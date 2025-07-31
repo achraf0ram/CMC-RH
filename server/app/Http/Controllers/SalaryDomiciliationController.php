@@ -62,9 +62,10 @@ class SalaryDomiciliationController extends Controller
             'user_id' => \Auth::id(),
             'title_ar' => 'تم حفظ توطين الراتب بنجاح',
             'title_fr' => 'Domiciliation de salaire sauvegardée avec succès',
-            'body_ar' => 'تم إرسال طلبك إلى الإدارة. الحالة: في انتظار المراجعة.',
-            'body_fr' => "Votre demande a été envoyée à l'administration. Statut: en attente de validation.",
+            'body_ar' => 'تم إرسال طلب توطين الراتب إلى الإدارة. الحالة: في انتظار المراجعة.',
+            'body_fr' => "Votre demande de domiciliation de salaire a été envoyée à l'administration. Statut: en attente de validation.",
             'type' => 'salaryDomiciliation',
+            'status' => $domiciliation->status ?? 'pending',
             'is_read' => false,
             'data' => json_encode(['salary_domiciliation_id' => $domiciliation->id]),
         ]);

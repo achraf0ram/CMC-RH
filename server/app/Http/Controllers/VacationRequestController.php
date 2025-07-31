@@ -155,9 +155,10 @@ class VacationRequestController extends Controller
                 'user_id' => Auth::id(),
                 'title_ar' => 'تم حفظ طلب الإجازة بنجاح',
                 'title_fr' => 'Demande de congé sauvegardée avec succès',
-                'body_ar' => 'تم إرسال طلبك إلى الإدارة. الحالة: في انتظار المراجعة.',
-                'body_fr' => "Votre demande a été envoyée à l'administration. Statut: en attente de validation.",
+                'body_ar' => 'تم إرسال طلب الإجازة إلى الإدارة. الحالة: في انتظار المراجعة.',
+                'body_fr' => "Votre demande de congé a été envoyée à l'administration. Statut: en attente de validation.",
                 'type' => 'vacationRequest',
+                'status' => $vacationRequest->status,
                 'is_read' => false,
                 'data' => json_encode(['vacation_request_id' => $vacationRequest->id]),
             ]);

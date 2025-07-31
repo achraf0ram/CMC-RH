@@ -95,9 +95,10 @@ class WorkCertificateController extends Controller
             'user_id' => \Auth::id(),
             'title_ar' => 'تم حفظ شهادة العمل بنجاح',
             'title_fr' => 'Attestation de travail sauvegardée avec succès',
-            'body_ar' => 'تم إرسال طلبك إلى الإدارة. الحالة: في انتظار المراجعة.',
-            'body_fr' => "Votre demande a été envoyée à l'administration. Statut: en attente de validation.",
+            'body_ar' => 'تم إرسال طلب شهادة العمل إلى الإدارة. الحالة: في انتظار المراجعة.',
+            'body_fr' => "Votre demande d'attestation de travail a été envoyée à l'administration. Statut: en attente de validation.",
             'type' => 'workCertificate',
+            'status' => $certificate->status ?? 'pending',
             'is_read' => false,
             'data' => json_encode(['certificate_id' => $certificate->id]),
         ]);

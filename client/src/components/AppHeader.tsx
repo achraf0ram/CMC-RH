@@ -615,221 +615,66 @@ export const AppHeader = () => {
 
   // دالة مساعدة للحصول على عنوان الإشعار للمستخدم
   function getUserNotifTitle(notif: any, language: string): string {
-    // فحص notif.type مباشرة
-    if (notif.type) {
+    // 1. إذا كان notif.type هو نوع الطلب الحقيقي
     const typeMap: any = {
       workCertificate: language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
       vacationRequest: language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
       missionOrder: language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
       salaryDomiciliation: language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
       annualIncome: language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
-      work_certificates: language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
-      vacation_requests: language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
-      mission_orders: language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
-      salary_domiciliations: language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
-      annual_incomes: language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
-        // إضافة أنواع إضافية لإشعارات إضافة الملفات
-        'file_upload_work_certificates': language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
-        'file_upload_vacation_requests': language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
-        'file_upload_mission_orders': language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
-        'file_upload_salary_domiciliations': language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
-        'file_upload_annual_incomes': language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
-        // إضافة أنواع إضافية لإشعارات إضافة الملفات
-        'file_ready_work_certificates': language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
-        'file_ready_vacation_requests': language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
-        'file_ready_mission_orders': language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
-        'file_ready_salary_domiciliations': language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
-        'file_ready_annual_incomes': language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
-        // إضافة أنواع إضافية لإشعارات إضافة الملفات
-        'admin_file_upload_work_certificates': language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
-        'admin_file_upload_vacation_requests': language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
-        'admin_file_upload_mission_orders': language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
-        'admin_file_upload_salary_domiciliations': language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
-        'admin_file_upload_annual_incomes': language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
-        // إضافة أنواع إضافية لإشعارات approved
-        'approved_work_certificates': language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
-        'approved_vacation_requests': language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
-        'approved_mission_orders': language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
-        'approved_salary_domiciliations': language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
-        'approved_annual_incomes': language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
-        // إضافة أنواع إضافية لإشعارات approved
-        'file_accepted_work_certificates': language === 'ar' ? 'شهادة عمل' : 'Attestation de travail',
-        'file_accepted_vacation_requests': language === 'ar' ? 'طلب إجازة' : 'Demande de congé',
-        'file_accepted_mission_orders': language === 'ar' ? 'أمر مهمة' : 'Ordre de mission',
-        'file_accepted_salary_domiciliations': language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire',
-        'file_accepted_annual_incomes': language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels',
-        // إضافة أنواع إضافية لإشعارات waiting_admin_file
-        'waiting_admin_file': null // سنستخرج النوع من body_ar/body_fr
-      };
-      
-      // إذا كان النوع معروف، استخدمه
-      if (typeMap[notif.type] && typeMap[notif.type] !== null) {
-        return typeMap[notif.type];
-      }
-      
-      // إذا كان النوع waiting_admin_file، استخرج النوع من body_ar/body_fr
-      if (notif.type === 'waiting_admin_file') {
-        const bodyAr = notif.body_ar || '';
-        const bodyFr = notif.body_fr || '';
-        
-        // البحث عن نوع الطلب في النص العربي
-        if (bodyAr.includes('نوع الطلب: work_certificates')) {
-          return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
+    };
+    if (notif.type && typeMap[notif.type]) {
+      return typeMap[notif.type];
+    }
+
+    // 2. إذا كان notif.data يحتوي *_id استنتج نوع الطلب
+    if (notif.data) {
+      try {
+        const data = typeof notif.data === 'string' ? JSON.parse(notif.data) : notif.data;
+        if (data) {
+          if (data.certificate_id) return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
+          if (data.vacation_request_id) return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
+          if (data.mission_order_id) return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
+          if (data.salary_domiciliation_id) return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
+          if (data.annual_income_id) return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
         }
-        if (bodyAr.includes('نوع الطلب: vacation_requests')) {
-          return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
-        }
-        if (bodyAr.includes('نوع الطلب: mission_orders')) {
-          return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
-        }
-        if (bodyAr.includes('نوع الطلب: salary_domiciliations')) {
-          return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
-        }
-        if (bodyAr.includes('نوع الطلب: annual_incomes')) {
-          return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
-        }
-        
-        // البحث عن نوع الطلب في النص الفرنسي
-        if (bodyFr.includes('Type de demande: work_certificates')) {
-          return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
-        }
-        if (bodyFr.includes('Type de demande: vacation_requests')) {
-          return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
-        }
-        if (bodyFr.includes('Type de demande: mission_orders')) {
-          return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
-        }
-        if (bodyFr.includes('Type de demande: salary_domiciliations')) {
-          return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
-        }
-        if (bodyFr.includes('Type de demande: annual_incomes')) {
-          return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
-        }
-      }
-      
-      return (language === 'ar' ? 'طلب جديد' : 'Nouvelle demande');
+      } catch (e) {}
     }
-    
-    // فحص body_ar و body_fr للبحث عن "نوع الطلب:"
-    const bodyAr = notif.body_ar || '';
-    const bodyFr = notif.body_fr || '';
-    
-    // البحث عن نوع الطلب في النص العربي
-    if (bodyAr.includes('نوع الطلب: work_certificates')) {
-      return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
+
+    // 3. محاولة استخراج نوع الطلب من body_ar أو title_ar
+    const body = (language === 'ar' ? notif.body_ar : notif.body_fr) || '';
+    const title = (language === 'ar' ? notif.title_ar : notif.title_fr) || '';
+    if (body.includes('شهادة عمل') || title.includes('شهادة عمل')) return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
+    if (body.includes('توطين الراتب') || title.includes('توطين الراتب')) return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
+    if (body.includes('طلب إجازة') || title.includes('طلب إجازة')) return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
+    if (body.includes('أمر مهمة') || title.includes('أمر مهمة')) return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
+    if (body.includes('شهادة دخل سنوي') || title.includes('شهادة دخل سنوي')) return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
+
+    // 4. إذا لم يوجد نوع طلب، أظهر نص الحالة
+    const status = notif.status || notif.request_status || notif.type;
+    switch (status) {
+      case 'accepted':
+      case 'approved':
+        return language === 'ar' ? 'طلب مقبول' : 'Demande acceptée';
+      case 'rejected':
+      case 'refused':
+        return language === 'ar' ? 'طلب مرفوض' : 'Demande refusée';
+      case 'waiting_admin_file':
+        return language === 'ar' ? 'بانتظار ملف الإدارة' : "En attente du fichier de l'admin";
+      case 'pending':
+      case 'submitted':
+        return language === 'ar' ? 'طلب قيد المراجعة' : 'Demande en cours';
+      case 'processing':
+        return language === 'ar' ? 'طلب قيد المعالجة' : 'Demande en traitement';
+      case 'completed':
+        return language === 'ar' ? 'طلب مكتمل' : 'Demande complétée';
+      case 'cancelled':
+        return language === 'ar' ? 'طلب ملغى' : 'Demande annulée';
+      case 'on_hold':
+        return language === 'ar' ? 'طلب موقوف مؤقتاً' : 'Demande en attente';
+      default:
+        return language === 'ar' ? 'طلب' : 'Demande';
     }
-    if (bodyAr.includes('نوع الطلب: vacation_requests')) {
-      return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
-    }
-    if (bodyAr.includes('نوع الطلب: mission_orders')) {
-      return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
-    }
-    if (bodyAr.includes('نوع الطلب: salary_domiciliations')) {
-      return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
-    }
-    if (bodyAr.includes('نوع الطلب: annual_incomes')) {
-      return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
-    }
-    
-    // البحث عن نوع الطلب في النص الفرنسي
-    if (bodyFr.includes('Type de demande: work_certificates')) {
-      return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
-    }
-    if (bodyFr.includes('Type de demande: vacation_requests')) {
-      return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
-    }
-    if (bodyFr.includes('Type de demande: mission_orders')) {
-      return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
-    }
-    if (bodyFr.includes('Type de demande: salary_domiciliations')) {
-      return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
-    }
-    if (bodyFr.includes('Type de demande: annual_incomes')) {
-      return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
-    }
-    
-    // البحث عن نوع الطلب في النص العربي لإشعارات إضافة الملفات (بدون تحديد نوع)
-    if (bodyAr.includes('تم تجهيز ملفك')) {
-      // محاولة استخراج نوع الطلب من النص
-      if (bodyAr.includes('شهادة عمل') || bodyAr.includes('work_certificates')) {
-        return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
-      }
-      if (bodyAr.includes('طلب إجازة') || bodyAr.includes('vacation_requests')) {
-        return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
-      }
-      if (bodyAr.includes('أمر مهمة') || bodyAr.includes('mission_orders')) {
-        return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
-      }
-      if (bodyAr.includes('توطين الراتب') || bodyAr.includes('salary_domiciliations')) {
-        return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
-      }
-      if (bodyAr.includes('شهادة دخل سنوي') || bodyAr.includes('annual_incomes')) {
-        return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
-      }
-    }
-    
-    // البحث عن نوع الطلب في النص الفرنسي لإشعارات إضافة الملفات (بدون تحديد نوع)
-    if (bodyFr.includes('Votre fichier a été accepté')) {
-      // محاولة استخراج نوع الطلب من النص
-      if (bodyFr.includes('Attestation de travail') || bodyFr.includes('work_certificates')) {
-        return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
-      }
-      if (bodyFr.includes('Demande de congé') || bodyFr.includes('vacation_requests')) {
-        return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
-      }
-      if (bodyFr.includes('Ordre de mission') || bodyFr.includes('mission_orders')) {
-        return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
-      }
-      if (bodyFr.includes('Domiciliation de salaire') || bodyFr.includes('salary_domiciliations')) {
-        return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
-      }
-      if (bodyFr.includes('Attestation de revenus annuels') || bodyFr.includes('annual_incomes')) {
-        return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
-      }
-    }
-    
-    // البحث عن نوع الطلب في النص العربي لإشعارات approved
-    if (bodyAr.includes('تم قبول طلبك')) {
-      // محاولة استخراج نوع الطلب من النص
-      if (bodyAr.includes('شهادة عمل') || bodyAr.includes('work_certificates')) {
-        return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
-      }
-      if (bodyAr.includes('طلب إجازة') || bodyAr.includes('vacation_requests')) {
-        return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
-      }
-      if (bodyAr.includes('أمر مهمة') || bodyAr.includes('mission_orders')) {
-        return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
-      }
-      if (bodyAr.includes('توطين الراتب') || bodyAr.includes('salary_domiciliations')) {
-        return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
-      }
-      if (bodyAr.includes('شهادة دخل سنوي') || bodyAr.includes('annual_incomes')) {
-        return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
-      }
-    }
-    
-    // البحث عن نوع الطلب في النص الفرنسي لإشعارات approved
-    if (bodyFr.includes('Votre fichier a été accepté')) {
-      // محاولة استخراج نوع الطلب من النص
-      if (bodyFr.includes('Attestation de travail') || bodyFr.includes('work_certificates')) {
-        return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
-      }
-      if (bodyFr.includes('Demande de congé') || bodyFr.includes('vacation_requests')) {
-        return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
-      }
-      if (bodyFr.includes('Ordre de mission') || bodyFr.includes('mission_orders')) {
-        return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
-      }
-      if (bodyFr.includes('Domiciliation de salaire') || bodyFr.includes('salary_domiciliations')) {
-        return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
-      }
-      if (bodyFr.includes('Attestation de revenus annuels') || bodyFr.includes('annual_incomes')) {
-        return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
-      }
-    }
-    
-    // إذا لم تجد نوع الطلب، استخدم العنوان الافتراضي
-    return (language === 'ar' ? 'طلب جديد' : 'Nouvelle demande');
   }
 
   // دالة اللون للعناوين - تستخدم الأزرق دائماً لأن العناوين الآن هي أسماء أنواع الطلبات
@@ -1017,19 +862,19 @@ export const AppHeader = () => {
     if (bodyAr.includes('تم تجهيز ملفك')) {
       // محاولة استخراج نوع الطلب من النص
       if (bodyAr.includes('شهادة عمل') || bodyAr.includes('work_certificates')) {
-        return 'workCertificate';
+        return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
       }
       if (bodyAr.includes('طلب إجازة') || bodyAr.includes('vacation_requests')) {
-        return 'vacationRequest';
+        return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
       }
       if (bodyAr.includes('أمر مهمة') || bodyAr.includes('mission_orders')) {
-        return 'missionOrder';
+        return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
       }
       if (bodyAr.includes('توطين الراتب') || bodyAr.includes('salary_domiciliations')) {
-        return 'salaryDomiciliation';
+        return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
       }
       if (bodyAr.includes('شهادة دخل سنوي') || bodyAr.includes('annual_incomes')) {
-        return 'annualIncome';
+        return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
       }
     }
     
@@ -1037,19 +882,19 @@ export const AppHeader = () => {
     if (bodyFr.includes('Votre fichier a été accepté')) {
       // محاولة استخراج نوع الطلب من النص
       if (bodyFr.includes('Attestation de travail') || bodyFr.includes('work_certificates')) {
-        return 'workCertificate';
+        return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
       }
       if (bodyFr.includes('Demande de congé') || bodyFr.includes('vacation_requests')) {
-        return 'vacationRequest';
+        return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
       }
       if (bodyFr.includes('Ordre de mission') || bodyFr.includes('mission_orders')) {
-        return 'missionOrder';
+        return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
       }
       if (bodyFr.includes('Domiciliation de salaire') || bodyFr.includes('salary_domiciliations')) {
-        return 'salaryDomiciliation';
+        return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
       }
       if (bodyFr.includes('Attestation de revenus annuels') || bodyFr.includes('annual_incomes')) {
-        return 'annualIncome';
+        return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
       }
     }
     
@@ -1057,19 +902,19 @@ export const AppHeader = () => {
     if (bodyAr.includes('تم قبول طلبك')) {
       // محاولة استخراج نوع الطلب من النص
       if (bodyAr.includes('شهادة عمل') || bodyAr.includes('work_certificates')) {
-        return 'workCertificate';
+        return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
       }
       if (bodyAr.includes('طلب إجازة') || bodyAr.includes('vacation_requests')) {
-        return 'vacationRequest';
+        return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
       }
       if (bodyAr.includes('أمر مهمة') || bodyAr.includes('mission_orders')) {
-        return 'missionOrder';
+        return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
       }
       if (bodyAr.includes('توطين الراتب') || bodyAr.includes('salary_domiciliations')) {
-        return 'salaryDomiciliation';
+        return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
       }
       if (bodyAr.includes('شهادة دخل سنوي') || bodyAr.includes('annual_incomes')) {
-        return 'annualIncome';
+        return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
       }
     }
     
@@ -1077,19 +922,19 @@ export const AppHeader = () => {
     if (bodyFr.includes('Votre fichier a été accepté')) {
       // محاولة استخراج نوع الطلب من النص
       if (bodyFr.includes('Attestation de travail') || bodyFr.includes('work_certificates')) {
-        return 'workCertificate';
+        return language === 'ar' ? 'شهادة عمل' : 'Attestation de travail';
       }
       if (bodyFr.includes('Demande de congé') || bodyFr.includes('vacation_requests')) {
-        return 'vacationRequest';
+        return language === 'ar' ? 'طلب إجازة' : 'Demande de congé';
       }
       if (bodyFr.includes('Ordre de mission') || bodyFr.includes('mission_orders')) {
-        return 'missionOrder';
+        return language === 'ar' ? 'أمر مهمة' : 'Ordre de mission';
       }
       if (bodyFr.includes('Domiciliation de salaire') || bodyFr.includes('salary_domiciliations')) {
-        return 'salaryDomiciliation';
+        return language === 'ar' ? 'توطين الراتب' : 'Domiciliation de salaire';
       }
       if (bodyFr.includes('Attestation de revenus annuels') || bodyFr.includes('annual_incomes')) {
-        return 'annualIncome';
+        return language === 'ar' ? 'شهادة دخل سنوي' : 'Attestation de revenus annuels';
       }
     }
     

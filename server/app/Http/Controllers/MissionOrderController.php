@@ -133,14 +133,15 @@ class MissionOrderController extends Controller
             ]);
             \Log::info('Admin notification created');
 
-            // إشعار للمستخدم
+            // عند إنشاء إشعار للمستخدم بعد إنشاء الطلب:
             \App\Models\UserNotification::create([
                 'user_id' => Auth::id(),
                 'title_ar' => 'تم حفظ أمر المهمة بنجاح',
                 'title_fr' => 'Ordre de mission sauvegardé avec succès',
-                'body_ar' => 'تم إرسال طلبك إلى الإدارة. الحالة: في انتظار المراجعة.',
-                'body_fr' => "Votre demande a été envoyée à l'administration. Statut: en attente de validation.",
+                'body_ar' => 'تم إرسال أمر المهمة إلى الإدارة. الحالة: في انتظار المراجعة.',
+                'body_fr' => "Votre ordre de mission a été envoyé à l'administration. Statut: en attente de validation.",
                 'type' => 'missionOrder',
+                'status' => $missionOrder->status ?? 'pending',
                 'is_read' => false,
                 'data' => json_encode(['mission_order_id' => $missionOrder->id]),
             ]);
