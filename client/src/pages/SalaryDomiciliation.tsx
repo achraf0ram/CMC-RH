@@ -109,17 +109,18 @@ const SalaryDomiciliation: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent mb-2">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 px-2 sm:px-4 py-4">
+      <div className="max-w-4xl mx-auto w-full">
+        <div className="text-center mb-4 sm:mb-6 md:mb-8">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent mb-1 sm:mb-2">
             {language === 'ar' ? 'طلب شهادة توطين الراتب' : "Demande d'attestation de domiciliation de salaire"}
           </h1>
-          <p className="text-gray-600 text-sm md:text-base">{language === 'ar' ? 'يرجى ملء النموذج ورفع المستند المطلوب.' : 'Veuillez remplir le formulaire et télécharger le document requis.'}</p>
+          <p className="text-gray-600 text-xs sm:text-sm md:text-base hidden sm:block">{language === 'ar' ? 'يرجى ملء النموذج ورفع المستند المطلوب.' : 'Veuillez remplir le formulaire et télécharger le document requis.'}</p>
         </div>
-        <div className="flex justify-start mt-4 mb-2">
+        <div className="flex justify-start mb-2">
           <Button 
             variant="outline"
+            className="border-blue-500 text-blue-600 hover:bg-blue-50 px-4 sm:px-6 py-2 rounded-lg shadow-sm font-semibold text-sm sm:text-base"
             onClick={() => {
               toast({
                 title: language === 'ar' ? "📋 عرض جميع الطلبات" : "📋 Voir toutes les demandes",
@@ -131,7 +132,6 @@ const SalaryDomiciliation: React.FC = () => {
               });
               window.location.href = '/all-requests';
             }}
-            className="border-blue-500 text-blue-600 hover:bg-blue-50 px-6 py-2 rounded-lg shadow-sm font-semibold text-base"
           >
             {language === 'ar' ? 'عرض جميع الطلبات' : 'Voir tous les demandes'}
           </Button>

@@ -184,13 +184,15 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent mb-2">
-            {t('settings')}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 px-2 sm:px-4 py-4">
+      <div className="max-w-3xl mx-auto w-full">
+        <div className="text-center mb-4 sm:mb-6 md:mb-8">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent mb-1 sm:mb-2">
+            {language === 'ar' ? 'الإعدادات' : 'Paramètres'}
           </h1>
+          <p className="text-gray-600 text-xs sm:text-sm md:text-base hidden sm:block">
+            {language === 'ar' ? 'قم بتحديث معلوماتك الشخصية وكلمة المرور' : 'Mettez à jour vos informations personnelles et votre mot de passe'}
+          </p>
         </div>
 
         <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">

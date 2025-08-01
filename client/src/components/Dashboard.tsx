@@ -97,72 +97,70 @@ export const Dashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen px-2 sm:px-4 bg-gradient-to-br from-blue-50 via-green-50 to-blue-100">
+      <div className="max-w-6xl mx-auto w-full">
         {/* Header */}
-        <div className="text-center mb-6 md:mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 md:w-16 md:h-16 bg-gradient-to-r from-cmc-blue-light to-cmc-green-light rounded-full mb-4 shadow-lg">
-            <BarChart3 className="w-6 h-6 md:w-8 md:h-8 text-cmc-blue" />
+        <div className="text-center mb-4 sm:mb-6 md:mb-8">
+          <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 bg-gradient-to-r from-cmc-blue-light to-cmc-green-light rounded-full mb-3 sm:mb-4 shadow-lg">
+            <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8 text-cmc-blue" />
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 mb-2">{t('dashboard')}</h1>
-          <p className="text-slate-600 text-sm md:text-base">{t('dashboardMainDesc')}</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-800 mb-1 sm:mb-2">{t('dashboard')}</h1>
+          <p className="text-slate-600 text-xs sm:text-sm md:text-base hidden sm:block">{t('dashboardMainDesc')}</p>
         </div>
-        
         {/* Stats Cards */}
-        <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-3 mb-6 md:mb-8">
+        <div className="grid gap-2 sm:gap-4 md:gap-6 grid-cols-1 md:grid-cols-3 mb-4 sm:mb-6 md:mb-8">
           {stats.map((stat) => (
-            <Card key={stat.title} className="cmc-card">
-              <CardHeader className={`bg-gradient-to-r ${stat.color} text-white rounded-t-lg p-4 md:p-6`}>
+            <Card key={stat.title} className="cmc-card w-full">
+              <CardHeader className={`bg-gradient-to-r ${stat.color} text-white rounded-t-lg p-3 sm:p-4 md:p-6`}>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-base md:text-lg font-semibold">
+                  <CardTitle className="text-base sm:text-lg font-semibold">
                     {stat.title}
                   </CardTitle>
-                  <stat.icon className="w-5 h-5 md:w-6 md:h-6" />
+                  <stat.icon className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
               </CardHeader>
-              <CardContent className="p-4 md:p-6">
-                <div className="text-2xl md:text-3xl font-bold text-slate-800 mb-2">{stat.value}</div>
-                <p className="text-xs md:text-sm text-slate-600">
+              <CardContent className="p-3 sm:p-4 md:p-6">
+                <div className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-800 mb-1 sm:mb-2">{stat.value}</div>
+                <p className="text-xs sm:text-sm text-slate-600">
                   {stat.description}
                 </p>
               </CardContent>
             </Card>
           ))}
         </div>
-
         {/* Quick Actions */}
-        <Card className="cmc-card">
-          <CardHeader className="cmc-gradient text-white rounded-t-lg p-4 md:p-6">
-            <CardTitle className="text-lg md:text-xl font-semibold text-center">
+        <Card className="cmc-card w-full">
+          <CardHeader className="cmc-gradient text-white rounded-t-lg p-3 sm:p-4 md:p-6">
+            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold text-center">
               {t('quickActions')}
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 md:p-8">
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
-              <Link to="/vacation-request" className="text-center p-4 md:p-6 bg-gradient-to-br from-cmc-blue-light/50 to-cmc-blue-light/30 rounded-lg border border-cmc-blue/20 hover:shadow-lg transition-all duration-200 cursor-pointer">
-                <Calendar className="w-10 h-10 md:w-12 md:h-12 text-cmc-blue mx-auto mb-3 md:mb-4" />
-                <h3 className="font-semibold text-slate-800 mb-2 text-sm md:text-base">{t('newVacationRequest')}</h3>
-                <p className="text-xs md:text-sm text-slate-600">{t('newVacationRequestDesc')}</p>
+          <CardContent className="p-3 sm:p-4 md:p-8">
+            <div className="grid gap-2 sm:gap-4 grid-cols-1 md:grid-cols-3">
+              <Link to="/vacation-request" className="text-center p-3 sm:p-4 md:p-6 bg-gradient-to-br from-cmc-blue-light/50 to-cmc-blue-light/30 rounded-lg border border-cmc-blue/20 hover:shadow-lg transition-all duration-200 cursor-pointer w-full">
+                <Calendar className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-cmc-blue mx-auto mb-2 sm:mb-3 md:mb-4" />
+                <h3 className="font-semibold text-slate-800 mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">{t('newVacationRequest')}</h3>
+                <p className="text-xs sm:text-sm text-slate-600 hidden sm:block">{t('newVacationRequestDesc')}</p>
               </Link>
-              <Link to="/work-certificate" className="text-center p-4 md:p-6 bg-gradient-to-br from-cmc-green-light/50 to-cmc-green-light/30 rounded-lg border border-cmc-green/20 hover:shadow-lg transition-all duration-200 cursor-pointer">
-                <CheckCircle className="w-10 h-10 md:w-12 md:h-12 text-cmc-green mx-auto mb-3 md:mb-4" />
-                <h3 className="font-semibold text-slate-800 mb-2 text-sm md:text-base">{t('workCertificateAction')}</h3>
-                <p className="text-xs md:text-sm text-slate-600">{t('workCertificateActionDesc')}</p>
+              <Link to="/work-certificate" className="text-center p-3 sm:p-4 md:p-6 bg-gradient-to-br from-cmc-green-light/50 to-cmc-green-light/30 rounded-lg border border-cmc-green/20 hover:shadow-lg transition-all duration-200 cursor-pointer w-full">
+                <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-cmc-green mx-auto mb-2 sm:mb-3 md:mb-4" />
+                <h3 className="font-semibold text-slate-800 mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">{t('workCertificateAction')}</h3>
+                <p className="text-xs sm:text-sm text-slate-600 hidden sm:block">{t('workCertificateActionDesc')}</p>
               </Link>
-              <Link to="/mission-order" className="text-center p-4 md:p-6 bg-gradient-to-br from-emerald-100/50 to-emerald-50/30 rounded-lg border border-emerald-200/50 hover:shadow-lg transition-all duration-200 cursor-pointer">
-                <BarChart3 className="w-10 h-10 md:w-12 md:h-12 text-emerald-600 mx-auto mb-3 md:mb-4" />
-                <h3 className="font-semibold text-slate-800 mb-2 text-sm md:text-base">{t('missionOrderAction')}</h3>
-                <p className="text-xs md:text-sm text-slate-600">{t('missionOrderActionDesc')}</p>
+              <Link to="/mission-order" className="text-center p-3 sm:p-4 md:p-6 bg-gradient-to-br from-emerald-100/50 to-emerald-50/30 rounded-lg border border-emerald-200/50 hover:shadow-lg transition-all duration-200 cursor-pointer w-full">
+                <BarChart3 className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-emerald-600 mx-auto mb-2 sm:mb-3 md:mb-4" />
+                <h3 className="font-semibold text-slate-800 mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">{t('missionOrderAction')}</h3>
+                <p className="text-xs sm:text-sm text-slate-600 hidden sm:block">{t('missionOrderActionDesc')}</p>
               </Link>
-              <Link to="/salary-domiciliation" className="text-center p-4 md:p-6 bg-gradient-to-br from-indigo-100/50 to-indigo-50/30 rounded-lg border border-indigo-200/50 hover:shadow-lg transition-all duration-200 cursor-pointer">
-                <Banknote className="w-10 h-10 md:w-12 md:h-12 text-indigo-600 mx-auto mb-3 md:mb-4" />
-                <h3 className="font-semibold text-slate-800 mb-2 text-sm md:text-base">{t('salaryDomiciliation')}</h3>
-                <p className="text-xs md:text-sm text-slate-600">{t('salaryDomiciliationDesc')}</p>
+              <Link to="/salary-domiciliation" className="text-center p-3 sm:p-4 md:p-6 bg-gradient-to-br from-indigo-100/50 to-indigo-50/30 rounded-lg border border-indigo-200/50 hover:shadow-lg transition-all duration-200 cursor-pointer w-full">
+                <Banknote className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-indigo-600 mx-auto mb-2 sm:mb-3 md:mb-4" />
+                <h3 className="font-semibold text-slate-800 mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">{t('salaryDomiciliation')}</h3>
+                <p className="text-xs sm:text-sm text-slate-600 hidden sm:block">{t('salaryDomiciliationDesc')}</p>
               </Link>
-              <Link to="/annual-income" className="text-center p-4 md:p-6 bg-gradient-to-br from-rose-100/50 to-rose-50/30 rounded-lg border border-rose-200/50 hover:shadow-lg transition-all duration-200 cursor-pointer">
-                <FileText className="w-10 h-10 md:w-12 md:h-12 text-rose-600 mx-auto mb-3 md:mb-4" />
-                <h3 className="font-semibold text-slate-800 mb-2 text-sm md:text-base">{t('annualIncome')}</h3>
-                <p className="text-xs md:text-sm text-slate-600">{t('annualIncomeDesc')}</p>
+              <Link to="/annual-income" className="text-center p-3 sm:p-4 md:p-6 bg-gradient-to-br from-rose-100/50 to-rose-50/30 rounded-lg border border-rose-200/50 hover:shadow-lg transition-all duration-200 cursor-pointer w-full">
+                <FileText className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-rose-600 mx-auto mb-2 sm:mb-3 md:mb-4" />
+                <h3 className="font-semibold text-slate-800 mb-1 sm:mb-2 text-xs sm:text-sm md:text-base">{t('annualIncome')}</h3>
+                <p className="text-xs sm:text-sm text-slate-600 hidden sm:block">{t('annualIncomeDesc')}</p>
               </Link>
             </div>
           </CardContent>

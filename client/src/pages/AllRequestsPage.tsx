@@ -218,33 +218,33 @@ const AllRequestsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent mb-2">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-blue-100 p-2 sm:p-3 md:p-4">
+      <div className="max-w-6xl mx-auto w-full">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent mb-1 sm:mb-2">
             {language === 'ar' ? 'جميع الطلبات' : 'Toutes les demandes'}
           </h1>
-          <p className="text-gray-600 text-sm md:text-base">
+          <p className="text-gray-600 text-xs sm:text-sm md:text-base">
             {language === 'ar' ? 'كل طلباتك بأنواعها في مكان واحد' : 'Toutes vos demandes, tous types confondus'}
           </p>
         </div>
         {loading ? (
-          <div className="flex flex-col items-center text-center gap-4">
+          <div className="flex flex-col items-center text-center gap-3 sm:gap-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="text-slate-600">
+            <p className="text-slate-600 text-sm">
               {language === 'ar' ? 'جاري التحميل...' : 'Chargement...'}
             </p>
           </div>
         ) : requests.length === 0 ? (
-          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-            <CardContent className="pt-6 pb-6 md:pt-8 md:pb-8">
-              <div className="flex flex-col items-center text-center gap-4">
-                <FileText className="h-12 w-12 text-gray-400" />
+          <Card className="shadow-xl border-0 bg-white/80 backdrop-blur-sm w-full max-w-md mx-auto">
+            <CardContent className="pt-4 pb-4 sm:pt-6 sm:pb-6 md:pt-8 md:pb-8">
+              <div className="flex flex-col items-center text-center gap-3 sm:gap-4">
+                <FileText className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-700 mb-1 sm:mb-2">
                     {language === 'ar' ? 'لا توجد طلبات' : 'Aucune demande'}
                   </h3>
-                  <p className="text-gray-500">
+                  <p className="text-gray-500 text-xs sm:text-sm">
                     {language === 'ar' ? 'لم تقم بإرسال أي طلب بعد' : 'Vous n\'avez pas encore soumis de demande'}
                   </p>
                 </div>
@@ -252,20 +252,20 @@ const AllRequestsPage = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:gap-6">
+          <div className="grid gap-3 sm:gap-4 md:gap-6">
             {requests.map((req) => (
-              <Card key={req.id + '-' + req.type} className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer" onClick={() => { setSelectedRequest(req); setShowModal(true); }}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-600 to-green-600 flex items-center justify-center">
-                        <User className="h-5 w-5 text-white" />
+              <Card key={req.id + '-' + req.type} className="shadow-lg border-0 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer w-full max-w-full" onClick={() => { setSelectedRequest(req); setShowModal(true); }}>
+                <CardHeader className="pb-2 sm:pb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-gradient-to-r from-blue-600 to-green-600 flex items-center justify-center">
+                        <User className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                       </div>
                       <div>
-                        <CardTitle className="text-lg font-semibold text-slate-800">
+                        <CardTitle className="text-base sm:text-lg font-semibold text-slate-800">
                           {req.full_name || req.fullName || req.nom || req.monsieur_madame}
                         </CardTitle>
-                        <p className="text-sm text-slate-600">
+                        <p className="text-xs sm:text-sm text-slate-600">
                           {language === 'ar' ? 'رقم التسجيل:' : 'Matricule:'} {req.matricule}
                         </p>
                         <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${
@@ -280,31 +280,31 @@ const AllRequestsPage = () => {
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1 sm:gap-2 mt-2 sm:mt-0">
                       {/* شارة حالة الطلب الجديدة */}
                       {req.status === 'pending' && (
-                        <span className="px-3 py-1 rounded-full text-xs font-medium border bg-gray-100 text-gray-500 border-gray-200">
+                        <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium border bg-gray-100 text-gray-500 border-gray-200">
                           {language === 'ar' ? 'في انتظار' : 'En attente'}
                         </span>
                       )}
                       {req.status === 'rejected' && (
-                        <span className="px-3 py-1 rounded-full text-xs font-medium border bg-red-100 text-red-700 border-red-200">
+                        <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium border bg-red-100 text-red-700 border-red-200">
                           {language === 'ar' ? 'مرفوض' : 'Rejeté'}
                         </span>
                       )}
                       {req.status === 'waiting_admin_file' && (
-                        <span className="px-3 py-1 rounded-full text-xs font-medium border bg-orange-50 text-orange-600 border-orange-200 italic">
+                        <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium border bg-orange-50 text-orange-600 border-orange-200 italic">
                           {language === 'ar' ? 'بانتظار ملف الإدارة' : "En attente du fichier de l'admin"}
                         </span>
                       )}
                       {req.status === 'approved' && !req.file_path && (
-                        <span className="px-3 py-1 rounded-full text-xs font-medium border bg-orange-100 text-orange-700 border-orange-200">
+                        <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium border bg-orange-100 text-orange-700 border-orange-200">
                           {language === 'ar' ? 'قبول في انتظار ملف PDF' : 'Accepté, en attente du PDF'}
                         </span>
                       )}
                       {req.status === 'approved' && (
                         <>
-                          <span className="px-3 py-1 rounded-full text-xs font-medium border bg-green-100 text-green-800 border-green-200 mr-1">
+                          <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium border bg-green-100 text-green-800 border-green-200 mr-1">
                             {language === 'ar' ? 'مقبول' : 'Accepté'}
                           </span>
                           {req.admin_file_url && (
@@ -316,11 +316,11 @@ const AllRequestsPage = () => {
                       )}
                       {/* الشارات القديمة (Urgent/PDF...) */}
                       {req.status === 'urgent' ? (
-                        <span className="px-3 py-1 rounded-full text-xs font-medium border bg-orange-100 text-orange-800 border-orange-200">
+                        <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium border bg-orange-100 text-orange-800 border-orange-200">
                           {language === 'ar' ? 'عاجل' : 'Urgent'}
                         </span>
                       ) : req.status === 'pending' ? (
-                        <span className="px-3 py-1 rounded-full text-xs font-medium border bg-gray-100 text-gray-800 border-gray-200">
+                        <span className="px-2 sm:px-3 py-1 rounded-full text-xs font-medium border bg-gray-100 text-gray-800 border-gray-200">
                           {language === 'ar' ? 'عادي' : 'Normal'}
                         </span>
                       ) : null}
@@ -345,7 +345,7 @@ const AllRequestsPage = () => {
                           download
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="ml-2 px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200 transition"
+                          className="ml-2 px-2 sm:px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200 transition"
                           title={language === 'ar' ? 'تحميل ملف الإدارة' : 'Télécharger le fichier admin'}
                         >
                           {language === 'ar' ? 'تحميل ملف الإدارة' : 'Télécharger admin'}
@@ -355,23 +355,23 @@ const AllRequestsPage = () => {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-start gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:gap-4 md:grid-cols-2">
+                    <div className="flex items-start gap-1 sm:gap-2">
                       <FileText className="h-4 w-4 text-blue-600 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-slate-700 mb-1">
+                        <p className="text-xs sm:text-sm font-medium text-slate-700 mb-0.5 sm:mb-1">
                           {language === 'ar' ? 'نوع الطلب:' : 'Type de demande:'}
                         </p>
-                        <p className="text-sm text-slate-600">{getTypeLabel(req.type, language)}</p>
+                        <p className="text-xs sm:text-sm text-slate-600">{getTypeLabel(req.type, language)}</p>
                       </div>
                     </div>
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-1 sm:gap-2">
                       <Calendar className="h-4 w-4 text-green-600 mt-0.5" />
                       <div>
-                        <p className="text-sm font-medium text-slate-700 mb-1">
+                        <p className="text-xs sm:text-sm font-medium text-slate-700 mb-0.5 sm:mb-1">
                           {language === 'ar' ? 'تاريخ الإرسال:' : 'Date de soumission:'}
                         </p>
-                        <p className="text-sm text-slate-600">{format(new Date(req.created_at), 'dd/MM/yyyy HH:mm', { locale: language === 'ar' ? ar : fr })}</p>
+                        <p className="text-xs sm:text-sm text-slate-600">{format(new Date(req.created_at), 'dd/MM/yyyy HH:mm', { locale: language === 'ar' ? ar : fr })}</p>
                       </div>
                     </div>
                   </div>
@@ -383,10 +383,10 @@ const AllRequestsPage = () => {
       </div>
       {/* نافذة التفاصيل */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className={`max-w-lg ${language === 'ar' ? 'text-right' : 'text-left'}`}
+        <DialogContent className={`max-w-xs sm:max-w-md md:max-w-lg w-full ${language === 'ar' ? 'text-right' : 'text-left'}`}
           style={{ direction: language === 'ar' ? 'rtl' : 'ltr' }}>
           <DialogHeader className={`flex flex-col ${language === 'ar' ? 'items-end' : 'items-start'}`}>
-            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+            <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-1 sm:gap-2">
               {selectedRequest?.type === 'vacationRequest' && <Calendar className="w-4 h-4 mr-1 inline" />}
               {selectedRequest?.type === 'workCertificate' && <FileText className="w-4 h-4 mr-1 inline" />}
               {selectedRequest?.type === 'missionOrder' && <ClipboardCheck className="w-4 h-4 mr-1 inline" />}
@@ -394,23 +394,23 @@ const AllRequestsPage = () => {
               {selectedRequest?.type === 'annualIncome' && <DollarSign className="w-4 h-4 mr-1 inline" />}
               {getTypeLabel(selectedRequest?.type, language)} {language === 'ar' ? 'تفاصيل' : 'Détails'}
             </DialogTitle>
-            <DialogDescription className="text-[14px] text-gray-500 mb-2">
+            <DialogDescription className="text-xs sm:text-[14px] text-gray-500 mb-1 sm:mb-2">
               {language === 'ar'
                 ? `جميع تفاصيل الطلب الخاص بـ ${selectedRequest?.full_name || selectedRequest?.fullName || selectedRequest?.nom || selectedRequest?.monsieur_madame}`
                 : `Tous les détails de la demande de ${selectedRequest?.full_name || selectedRequest?.fullName || selectedRequest?.nom || selectedRequest?.monsieur_madame}`}
             </DialogDescription>
           </DialogHeader>
           {selectedRequest && (
-            <div className="space-y-2 py-2">
-              <div className="flex justify-between items-center text-[14px] border-b pb-1">
+            <div className="space-y-1 sm:space-y-2 py-1 sm:py-2">
+              <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                 <span className="font-semibold text-gray-700">{language === 'ar' ? 'الاسم:' : 'Nom:'}</span>
                 <span>{selectedRequest.full_name || selectedRequest.fullName || selectedRequest.nom || selectedRequest.monsieur_madame}</span>
               </div>
-              <div className="flex justify-between items-center text-[14px] border-b pb-1">
+              <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                 <span className="font-semibold text-gray-700">{language === 'ar' ? 'رقم التسجيل:' : 'Matricule:'}</span>
                 <span>{selectedRequest.matricule}</span>
               </div>
-              <div className="flex justify-between items-center text-[14px] border-b pb-1">
+              <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                 <span className="font-semibold text-gray-700">{language === 'ar' ? 'نوع الطلب:' : 'Type de demande:'}</span>
                 <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-semibold ${
   selectedRequest.type === 'workCertificate' ? 'bg-green-100 text-green-700' :
@@ -424,7 +424,7 @@ const AllRequestsPage = () => {
                 </span>
               </div>
               {/* تم حذف سطر الحالة (Statut) بناءً على طلب المستخدم */}
-              <div className="flex justify-between items-center text-[14px] border-b pb-1">
+              <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                 <span className="font-semibold text-gray-700">{language === 'ar' ? 'الحالة:' : 'Statut:'}</span>
                 <span className={`inline-block px-2 py-1 rounded text-xs font-semibold border ${getStatusColor(selectedRequest.status)}`}>{getStatusText(selectedRequest.status, language)}</span>
               </div>
@@ -432,19 +432,19 @@ const AllRequestsPage = () => {
               {selectedRequest.type === 'vacationRequest' && (
                 <>
                   {(selectedRequest.leaveType || selectedRequest.leave_type) && (
-                    <div className="flex justify-between items-center text-[14px] border-b pb-1">
+                    <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                       <span className="font-semibold text-gray-700">{language === 'ar' ? 'نوع الإجازة:' : 'Type de congé:'}</span>
                       <span>{selectedRequest.leaveType || selectedRequest.leave_type}</span>
                     </div>
                   )}
                   {(selectedRequest.startDate || selectedRequest.start_date) && (
-                    <div className="flex justify-between items-center text-[14px] border-b pb-1">
+                    <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                       <span className="font-semibold text-gray-700">{language === 'ar' ? 'تاريخ البداية:' : 'Date de début:'}</span>
                       <span>{format(new Date(selectedRequest.startDate || selectedRequest.start_date), 'PPP', { locale: language === 'ar' ? ar : fr })}</span>
                     </div>
                   )}
                   {(selectedRequest.endDate || selectedRequest.end_date) && (
-                    <div className="flex justify-between items-center text-[14px] border-b pb-1">
+                    <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                       <span className="font-semibold text-gray-700">{language === 'ar' ? 'تاريخ النهاية:' : 'Date de fin:'}</span>
                       <span>{format(new Date(selectedRequest.endDate || selectedRequest.end_date), 'PPP', { locale: language === 'ar' ? ar : fr })}</span>
                     </div>
@@ -455,19 +455,19 @@ const AllRequestsPage = () => {
               {selectedRequest.type === 'workCertificate' && (
                 <>
                   {selectedRequest.purpose && (
-                    <div className="flex justify-between items-center text-[14px] border-b pb-1">
+                    <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                       <span className="font-semibold text-gray-700">{language === 'ar' ? 'الغرض:' : "Objet de l'attestation:"}</span>
                       <span>{selectedRequest.purpose}</span>
                     </div>
                   )}
                   {selectedRequest.grade && (
-                    <div className="flex justify-between items-center text-[14px] border-b pb-1">
+                    <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                       <span className="font-semibold text-gray-700">{language === 'ar' ? 'الدرجة:' : 'Grade:'}</span>
                       <span>{selectedRequest.grade}</span>
                     </div>
                   )}
                   {selectedRequest.function && (
-                    <div className="flex justify-between items-center text-[14px] border-b pb-1">
+                    <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                       <span className="font-semibold text-gray-700">{language === 'ar' ? 'الوظيفة:' : 'Fonction:'}</span>
                       <span>{selectedRequest.function}</span>
                     </div>
@@ -477,25 +477,25 @@ const AllRequestsPage = () => {
               {selectedRequest.type === 'missionOrder' && (
                 <>
                   {selectedRequest.destination && (
-                    <div className="flex justify-between items-center text-[14px] border-b pb-1">
+                    <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                       <span className="font-semibold text-gray-700">{language === 'ar' ? 'الوجهة:' : 'Destination:'}</span>
                       <span>{selectedRequest.destination}</span>
                     </div>
                   )}
                   {selectedRequest.purpose && (
-                    <div className="flex justify-between items-center text-[14px] border-b pb-1">
+                    <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                       <span className="font-semibold text-gray-700">{language === 'ar' ? 'الغرض من المهمة:' : 'Objet de la mission:'}</span>
                       <span>{selectedRequest.purpose}</span>
                     </div>
                   )}
                   {selectedRequest.startDate && (
-                    <div className="flex justify-between items-center text-[14px] border-b pb-1">
+                    <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                       <span className="font-semibold text-gray-700">{language === 'ar' ? 'من:' : 'Du:'}</span>
                       <span>{selectedRequest.startDate}</span>
                     </div>
                   )}
                   {selectedRequest.endDate && (
-                    <div className="flex justify-between items-center text-[14px] border-b pb-1">
+                    <div className="flex justify-between items-center text-xs sm:text-[14px] border-b pb-1">
                       <span className="font-semibold text-gray-700">{language === 'ar' ? 'إلى:' : 'Au:'}</span>
                       <span>{selectedRequest.endDate}</span>
                     </div>

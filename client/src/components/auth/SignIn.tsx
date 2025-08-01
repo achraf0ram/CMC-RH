@@ -76,25 +76,25 @@ export const SignIn = () => {
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-cover bg-center p-4"
+      className="flex min-h-screen items-center justify-center bg-cover bg-center p-2 sm:p-4"
       style={{ backgroundImage: "url('/lovable-uploads/CMC CASA -.png')" }}
     >
       <div className="absolute inset-0 bg-white/30" />
-      <div className="relative z-10 w-full max-w-md">
-        <div className="overflow-hidden rounded-3xl bg-white shadow-3xl animate-fade-in">
-          <div className="bg-gradient-to-r from-blue-500 to-green-400 p-6 text-center rounded-t-3xl">
+      <div className="relative z-10 w-full max-w-xs sm:max-w-md">
+        <div className="overflow-hidden rounded-2xl sm:rounded-3xl bg-white shadow-3xl animate-fade-in">
+          <div className="bg-gradient-to-r from-blue-500 to-green-400 p-4 sm:p-6 text-center rounded-t-2xl sm:rounded-t-3xl">
             <div className="flex justify-center mb-1">
-              <div className="w-16 h-16 rounded-full bg-white/90 border-2 border-blue-400 shadow-xl flex items-center justify-center transition-transform duration-200 hover:scale-105 hover:shadow-2xl">
-                <img src="/favicon.ico" alt="Logo" className="w-12 h-12 object-cover rounded-full" />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-white/90 border-2 border-blue-400 shadow-xl flex items-center justify-center transition-transform duration-200 hover:scale-105 hover:shadow-2xl">
+                <img src="/favicon.ico" alt="Logo" className="w-8 h-8 sm:w-12 sm:h-12 object-cover rounded-full" />
               </div>
             </div>
-            <h2 className="text-3xl font-bold text-white tracking-wider mb-1">CMC</h2>
-            <p className="text-white/80 text-sm">مرحبا بك! الرجاء تسجيل الدخول للمتابعة</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-wider mb-1">CMC</h2>
+            <p className="text-white/80 text-xs sm:text-sm">مرحبا بك! الرجاء تسجيل الدخول للمتابعة</p>
           </div>
-          <div className="p-8">
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-left block">E-mail</Label>
+          <div className="p-4 sm:p-8">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-3 sm:space-y-4">
+              <div className="space-y-1 sm:space-y-2">
+                <Label htmlFor="email" className="text-left block text-xs sm:text-base">E-mail</Label>
                 <Input
                   id="email"
                   type="email"
@@ -102,12 +102,13 @@ export const SignIn = () => {
                   {...form.register("email")}
                   required
                   dir="ltr"
+                  className="text-xs sm:text-base"
                 />
-                {form.formState.errors.email && <p className="text-red-500 text-sm">{form.formState.errors.email.message}</p>}
+                {form.formState.errors.email && <p className="text-red-500 text-xs sm:text-sm">{form.formState.errors.email.message}</p>}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-left block">Mot de passe</Label>
+              <div className="space-y-1 sm:space-y-2">
+                <Label htmlFor="password" className="text-left block text-xs sm:text-base">Mot de passe</Label>
                 <Input
                   id="password"
                   type="password"
@@ -115,11 +116,12 @@ export const SignIn = () => {
                   {...form.register("password")}
                   required
                   dir="ltr"
+                  className="text-xs sm:text-base"
                 />
-                 {form.formState.errors.password && <p className="text-red-500 text-sm">{form.formState.errors.password.message}</p>}
+                 {form.formState.errors.password && <p className="text-red-500 text-xs sm:text-sm">{form.formState.errors.password.message}</p>}
               </div>
               
-              <div className="text-sm text-left">
+              <div className="text-xs sm:text-sm text-left">
                   <Button variant="link" type="button" className="p-0 text-blue-600 hover:text-blue-700 hover:underline" onClick={() => navigate('/forgot-password')}>
                       Mot de passe oublié ?
                   </Button>
@@ -127,7 +129,7 @@ export const SignIn = () => {
 
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white hover:shadow-md active:scale-95 transition-all text-lg py-3"
+                className="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white hover:shadow-md active:scale-95 transition-all text-base sm:text-lg py-2 sm:py-3"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
@@ -140,7 +142,7 @@ export const SignIn = () => {
                 )}
               </Button>
 
-              <div className="mt-4 text-center text-sm">
+              <div className="mt-3 sm:mt-4 text-center text-xs sm:text-sm">
                 Vous n'avez pas de compte ?{" "}
                 <Button
                   variant="link"
